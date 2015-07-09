@@ -1,0 +1,64 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:entry title="AWS Config" field="awsconfigregion">
+    </f:entry>
+
+    <f:entry title="AWS Region" field="region">
+         <f:select name="region"/>
+    </f:entry>
+
+    <f:entry title="Proxy Host" field="proxyHost">
+        <f:textbox default="" name="proxyHost"/>
+    </f:entry>
+
+    <f:entry title="Proxy Port" field="proxyPort">
+        <f:textbox default="" name="proxyPort"
+        checkUrl="'${rootURL}/scm/AWSCodePipelineSCM/proxyPortCheck?value='+encode(this.value)"/>
+    </f:entry>
+
+    <f:entry title="Credentials" field="credentialstitle">
+    </f:entry>
+
+    <f:description>
+      If these keys are left blank, the plugin will attempt to use credentials from the default provider chain. That
+      is: Environment Variables, Java System properties, credentials profile file, and finally, EC2 Instance profile.
+    </f:description>
+
+    <f:entry title="AWS Access Key" field="awsAccessKey">
+      <f:textbox default="" name="awsAccessKey"/>
+    </f:entry>
+
+    <f:entry title="AWS Secret Key" field="awsSecretKey">
+      <f:password name="awsSecretKey"/>
+    </f:entry>
+
+    <f:entry title="Clear workspace before copying">
+            <f:checkbox name="clearWorkspace" checked="${h.defaultToTrue(scm.clearWorkspace)}"/>
+    </f:entry>
+
+    <f:entry title="CodePipeline Action Type" field="codepipelineActionType">
+        </f:entry>
+
+    <f:description>
+      This value must match the Category field that is on the Custom Action in your corresponding Pipeline.
+    </f:description>
+    <f:entry title="Category" field="category">
+        <f:select name="category" default="Please Choose A Category"
+        checkUrl="'${rootURL}/scm/AWSCodePipelineSCM/categoryCheck?value='+encode(this.value)"/>
+    </f:entry>
+
+    <f:description>
+     This value must match the Provider field that is on the Custom Action in your corresponding Pipeline.
+    </f:description>
+    <f:entry title="Provider" field="provider">
+        <f:textbox default="Jenkins" name="provider"
+        checkUrl="'${rootURL}/scm/AWSCodePipelineSCM/providerCheck?value='+encode(this.value)"/>
+    </f:entry>
+
+    <f:description>
+      This value must match the Version field that is on the Custom Action in your corresponding Pipeline.
+    </f:description>
+    <f:entry title="Version" field="version">
+        <f:textbox default="1" name="version"
+        checkUrl="'${rootURL}/scm/AWSCodePipelineSCM/versionCheck?value='+encode(this.value)"/>
+    </f:entry>
+</j:jelly>

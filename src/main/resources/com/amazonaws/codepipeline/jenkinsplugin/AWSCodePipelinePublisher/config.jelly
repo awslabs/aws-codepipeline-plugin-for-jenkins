@@ -1,0 +1,23 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+
+<f:entry title="Build Output Locations" field="buildOutputs" type="hidden">
+  <f:repeatable var="outputLocations" items="${instance.buildOutputs}" noAddButton="false" minimum="0">
+  <table width="100%">
+
+  <f:description>
+      If these locations are left blank the plugin will upload the whole workspace to AWS CodePipelines
+  </f:description>
+    <f:entry title="Location">
+      <f:textbox name="Location.output" value="${outputLocations.output}"/>
+    </f:entry>
+    <f:entry>
+      <div align="right">
+        <input type="button" value="Add more" class="repeatable-add" />
+        <input type="button" value="Delete" class="repeatable-delete" style="margin-left: 1em;" />
+      </div>
+    </f:entry>
+  </table>
+  </f:repeatable>
+  </f:entry>
+</j:jelly>
