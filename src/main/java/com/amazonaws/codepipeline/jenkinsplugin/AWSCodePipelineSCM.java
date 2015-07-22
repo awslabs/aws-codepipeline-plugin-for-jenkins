@@ -14,34 +14,28 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.codepipeline.AmazonCodePipelineClient;
-import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
+import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
 import com.amazonaws.services.codepipeline.model.ActionOwner;
 import com.amazonaws.services.codepipeline.model.ActionTypeId;
-import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.JobStatus;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
 import com.amazonaws.services.codepipeline.model.PollForJobsResult;
-import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.S3Object;
 import hudson.EnvVars;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.TaskListener;
-import hudson.scm.SCMDescriptor;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
 import hudson.scm.ChangeLogParser;
 import hudson.scm.NullChangeLogParser;
 import hudson.scm.PollingResult;
+import hudson.scm.SCMDescriptor;
 import hudson.scm.SCMRevisionState;
 import hudson.scm.SCM;
 import hudson.util.FormValidation;
@@ -49,22 +43,14 @@ import hudson.util.ListBoxModel;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-
 import java.io.File;
 import java.io.IOException;
-
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
-    private final LoggingHelper            logHelper;
-    private final DownloadTools            downloader;
-    private final UploadTools              uploadTools;
-    private final ExtractionTools          extractor;
     private final CodePipelineStateModel   model;
     private Job                            job;
-
     private final boolean clearWorkspace;
     private String  projectName;
     private final String  actionTypeCategory;
@@ -82,11 +68,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final String provider,
             final String version) {
         final CodePipelineStateService service = new CodePipelineStateService();
-        logHelper      = new LoggingHelper();
         model          = service.getModel();
-        downloader     = new DownloadTools();
-        uploadTools    = new UploadTools();
-        extractor      = new ExtractionTools();
         clearWorkspace = clear;
 
         model.setRegion(Validation.sanitize(region));
@@ -95,7 +77,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         model.setAwsAccessKey(Validation.sanitize(awsAccessKey));
         model.setAwsSecretKey(Validation.sanitize(awsSecretKey));
         actionTypeCategory = Validation.sanitize(category.trim());
-        model.setActionTypeCategory(CodePipelineStateModel.CategoryType.fromName(actionTypeCategory));
+        model.setActionTypeCategory(actionTypeCategory);
         actionTypeProvider = Validation.sanitize(provider.trim());
         actionTypeVersion = Validation.sanitize(version.trim());
 
@@ -120,43 +102,30 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final AbstractProject<?, ?> project,
             final Launcher launcher,
             final FilePath filePath,
-            final TaskListener taskListener,
+            final TaskListener listener,
             final SCMRevisionState revisionState)
             throws IOException, InterruptedException {
-        if (model != null
-                && Validation.isValidConfiguration()
-                && Validation.projectNameIsValid(projectName)
-                && Validation.actionTypeIsValid(actionTypeCategory, actionTypeProvider, actionTypeVersion)
-                && model.areAllPluginsInstalled()) {
+        validate(listener);
+
+        if (model != null) {
             final ActionTypeId actionTypeId = new ActionTypeId();
             actionTypeId.setCategory(actionTypeCategory);
             actionTypeId.setOwner(ActionOwner.Custom);
             actionTypeId.setProvider(actionTypeProvider);
             actionTypeId.setVersion(actionTypeVersion);
+            LoggingHelper.log(listener, "Polling for jobs for action type id: ["
+                    + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s]",
+                    actionTypeId.getOwner(),
+                    actionTypeId.getCategory(),
+                    actionTypeId.getProvider(),
+                    actionTypeId.getVersion(),
+                    projectName);
 
-            logHelper.log(taskListener, "Polling for jobs for action type id: " +
-                    "Owner: " + actionTypeId.getOwner() +
-                    ", Category: " + actionTypeId.getCategory() +
-                    ", Provider: " + actionTypeId.getProvider() +
-                    ", Version: " + actionTypeId.getVersion() +
-                    ", ProjectName: " + projectName);
-
-            return pollForJobs(actionTypeId, taskListener);
+            return pollForJobs(actionTypeId, listener);
         }
         else {
-            if (model != null) {
-                final String error = String.format("Invalid State: Category: '%s' Provider: '%s', Version: '%s', " +
-                                "ProjectName: '%s', Publisher Installed: '%s'",
-                        actionTypeCategory,
-                        actionTypeProvider,
-                        actionTypeVersion,
-                        projectName,
-                        model.areAllPluginsInstalled());
-                logHelper.log(taskListener, error);
-            }
-            else {
-                logHelper.log(taskListener, "Model was not created");
-            }
+            final String error = "Invalid State: Category: Model was not created";
+            LoggingHelper.log(listener, error);
 
             return PollingResult.NO_CHANGES;
         }
@@ -169,7 +138,6 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final TaskListener taskListener)
             throws IOException, InterruptedException {
         getProjectName(build, taskListener);
-
         return null;
     }
 
@@ -177,103 +145,36 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     public boolean checkout(
             final AbstractBuild<?, ?> abstractBuild,
             final Launcher launcher,
-            final FilePath filePath,
+            final FilePath workspacePath,
             final BuildListener listener,
-            final File file)
+            final File changelogFile)
             throws IOException, InterruptedException {
-        boolean success = false;
-        final boolean buildFailed = false;
-
         if (job == null) {
             // This is here for if a customer presses BuildNow, it will still attempt a build.
             return true;
         }
 
-        getProjectName(abstractBuild, listener);
-        Validation.validateProjectName(projectName, listener);
-        clearWorkspaceIfSelected(filePath, listener);
-
-        logHelper.log(listener, String.format("Job '%s' received", job.getId()));
-
         try {
-            for (final Artifact artifact : job.getData().getInputArtifacts()) {
-                final S3Object sessionObject = getS3Object(artifact);
+            getProjectName(abstractBuild, listener);
+            validate(listener);
 
-                if (sessionObject == null) {
-                    final String error = "Unable to get Credentials, this can be caused by:\n " +
-                            "-AWS CodePipeline plugin not configured properly\n" +
-                            "-Incorrect Credentials";
-                    logHelper.log(listener, error);
+            LoggingHelper.log(listener, "Job '%s' received", job.getId());
 
-                    uploadTools.putJobResult(
-                            buildFailed,
-                            error,
-                            abstractBuild.getId(),
-                            model.getJobID(),
-                            model.getAwsClient(),
-                            listener);
-                    return false;
-                }
-
-                final CodePipelineStateModel.CompressionType compressionType =
-                        extractor.getCompressionType(sessionObject, listener);
-                model.setCompressionType(compressionType);
-
-                final String downloadedFileName = Paths.get(sessionObject.getKey()).getFileName().toString();
-
-                try {
-                    downloadAndExtract(sessionObject, filePath, downloadedFileName, listener);
-                    success = true;
-                }
-                catch (final Exception ex) {
-                    final String error = "Failed to acquire artifacts: " + ex.getMessage();
-                    logHelper.log(listener, error);
-                    logHelper.log(listener, ex);
-
-                    uploadTools.putJobResult(
-                            buildFailed,
-                            error,
-                            abstractBuild.getId(),
-                            model.getJobID(),
-                            model.getAwsClient(),
-                            listener);
-                }
-            }
+            workspacePath.act(new DownloadCallable(clearWorkspace, job, model, listener));
         }
         finally {
             cleanUp();
         }
 
-        return success;
-    }
-
-    public S3Object getS3Object(final Artifact artifact) {
-        final AWSClients            aws                     = model.getAwsClient();
-        final S3ArtifactLocation    artifactLocation        = artifact.getLocation().getS3Location();
-        final AWSSessionCredentials awsSessionCredentials   = job.getData().getArtifactCredentials();
-
-        final BasicSessionCredentials basicCredentials = new BasicSessionCredentials(
-                awsSessionCredentials.getAccessKeyId(),
-                awsSessionCredentials.getSecretAccessKey(),
-                awsSessionCredentials.getSessionToken());
-
-        final AmazonS3Client client = aws.getS3Client(basicCredentials);
-
-        if (client == null) {
-            return null;
-        }
-
-        final String   bucketName    = artifactLocation.getBucketName();
-
-        return client.getObject(bucketName, artifactLocation.getObjectKey());
+        return true;
     }
 
     public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) {
         final AWSClients aws = model.getAwsClient();
-        final AmazonCodePipelineClient codePipelineClient = aws.getCodePipelineClient();
-
+        final AWSCodePipelineClient codePipelineClient = aws.getCodePipelineClient();
         final PollForJobsRequest request = new PollForJobsRequest();
         request.setActionTypeId(actionType);
+
         final Map<String, String> queryParam = new HashMap<>();
         queryParam.put("ProjectName", projectName);
         request.setQueryParam(queryParam);
@@ -286,8 +187,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             model.setJobID(job.getId());
             model.setOutputBuildArtifacts(job.getData().getOutputArtifacts());
 
-            logHelper.log(taskListener, "Received Job request with ID: " +
-                    model.getJobID());
+            LoggingHelper.log(taskListener, "Received Job request with ID: %s", model.getJobID());
 
             final AcknowledgeJobRequest acknowledgeJobRequest = new AcknowledgeJobRequest();
             acknowledgeJobRequest.setJobId(job.getId());
@@ -296,8 +196,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final AcknowledgeJobResult acknowledgeJobResult = codePipelineClient.acknowledgeJob(acknowledgeJobRequest);
 
             if (acknowledgeJobResult.getStatus().equals(JobStatus.InProgress.name())) {
-                logHelper.log(taskListener, "Job Acknowledged with ID: " +
-                        acknowledgeJobRequest.getJobId());
+                LoggingHelper.log(taskListener, "Job Acknowledged with ID: %s", acknowledgeJobRequest.getJobId());
 
                 model.setJobID(job.getId());
 
@@ -305,70 +204,24 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             }
         }
 
-        logHelper.log(taskListener, "No jobs found.");
+        LoggingHelper.log(taskListener, "No jobs found.");
 
         return PollingResult.NO_CHANGES;
     }
 
-    public void downloadAndExtract(
-            final S3Object sessionObject,
-            final FilePath filePath,
-            final String downloadedFileName,
-            final TaskListener listener)
-            throws Exception {
-        downloader.attemptArtifactDownload(
-                sessionObject,
-                filePath,
-                downloadedFileName,
-                listener);
-
-        String fullFilePath = null;
-
-        try {
-            logHelper.log(listener, "File downloaded successfully");
-
-            fullFilePath = extractor.getFullCompressedFilePath(downloadedFileName, filePath.getRemote());
-            extractor.decompressFile(fullFilePath, filePath, listener);
-
-            logHelper.log(listener, "File uncompressed successfully");
-        }
-        finally {
-            if (fullFilePath != null) {
-                try {
-                    extractor.deleteTemporaryCompressedFile(fullFilePath, listener);
-                }
-                catch (final IOException ex) {
-                    logHelper.log(listener, "Could not delete temporary file, " + ex.getMessage());
-                    logHelper.log(listener, ex);
-                }
-            }
-        }
-    }
-
-    public void clearWorkspaceIfSelected(final FilePath filePath, final TaskListener listener) {
-        if (clearWorkspace) {
-            try {
-                logHelper.log(listener, "Clearing Workspace " + filePath.getRemote() + " before download");
-                filePath.deleteContents();
-            }
-            catch (final IOException ex) {
-                logHelper.log(listener, "Unable to clear workspace, " + ex.getMessage());
-            }
-            catch (final InterruptedException ex) {
-                logHelper.log(listener, "Clearing workspace interrupted, " + ex.getMessage());
-            }
-        }
+    private void cleanUp() {
+        job = null;
     }
 
     @Override
     public DescriptorImpl getDescriptor() {
-        return ( DescriptorImpl ) super.getDescriptor();
+        return (DescriptorImpl)super.getDescriptor();
     }
 
     public boolean isClearWorkspace() {
         return clearWorkspace;
     }
-    
+
     public String getAwsAccessKey() {
         return model.getAwsAccessKey();
     }
@@ -377,23 +230,18 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return model.getAwsSecretKey();
     }
 
-    public int getMaxMappings() {
-        // TODO: Pull Max number from CodePipelineFrontEndService
-        return 5;
-    }
-
     public String getRegion() {
         return model.getRegion();
     }
-    
+
     public String getProxyHost() {
         return model.getProxyHost();
     }
-    
+
     public int getProxyPort() {
         return model.getProxyPort();
     }
-    
+
     public String getCategory() {
         return actionTypeCategory;
     }
@@ -415,10 +263,15 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         }
     }
 
-    private void cleanUp() {
-        job = null;
+    private void validate(final TaskListener listener) {
+        Validation.validatePlugin(
+                actionTypeCategory,
+                actionTypeProvider,
+                actionTypeVersion,
+                projectName,
+                model,
+                listener);
     }
-
 
     /**
      * Descriptor for {@link AWSCodePipelineSCM}. Used as a singleton.
@@ -461,7 +314,6 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             return true;
         }
 
-        
         public ListBoxModel doFillRegionItems() {
             final ListBoxModel items = new ListBoxModel();
 
@@ -517,7 +369,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                 return FormValidation.ok();
             }
         }
-        
+
         public FormValidation doProxyPortCheck(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.ok();
@@ -540,4 +392,3 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         }
     }
 }
-

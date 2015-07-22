@@ -14,15 +14,21 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.codepipeline.model.Artifact;
+
 import org.apache.commons.lang.StringUtils;
+
+import java.io.Serializable;
 import java.util.List;
 
-public final class CodePipelineStateModel {
+public final class CodePipelineStateModel implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     public final Regions[] AVAILABLE_REGIONS = { Regions.US_EAST_1 };
-    public final CategoryType[]  ACTION_TYPE = {
-            CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
+    public final CategoryType[]  ACTION_TYPE =
+            { CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
 
     private String region;
     private String proxyHost;
@@ -72,11 +78,9 @@ public final class CodePipelineStateModel {
         }
 
         public static CategoryType fromName(final String name) {
-            final CategoryType[] arr = values();
-
-            for (final CategoryType region : arr) {
-                if (name.equals(region.getName())) {
-                    return region;
+            for (final CategoryType category : values()) {
+                if (name.equals(category.getName())) {
+                    return category;
                 }
             }
 
@@ -85,16 +89,18 @@ public final class CodePipelineStateModel {
     }
 
     public AWSClients getAwsClient() {
+        final Region awsRegion = Region.getRegion(Regions.fromName(region));
         final AWSClients aws;
+
         if (StringUtils.isEmpty(awsAccessKey) && StringUtils.isEmpty(awsSecretKey)) {
             aws = AWSClients.fromDefaultCredentialChain(
-                    region,
+                    awsRegion,
                     proxyHost,
                     proxyPort);
         }
         else {
             aws = AWSClients.fromBasicCredentials(
-                    region,
+                    awsRegion,
                     awsAccessKey,
                     awsSecretKey,
                     proxyHost,
@@ -103,8 +109,12 @@ public final class CodePipelineStateModel {
         return aws;
     }
 
-    public void setActionTypeCategory(final CategoryType actionTypeCategory) {
-        this.actionTypeCategory = actionTypeCategory;
+    public CategoryType getActionTypeCategory() {
+        return actionTypeCategory;
+    }
+
+    public void setActionTypeCategory(final String actionTypeCategory) {
+        this.actionTypeCategory = CodePipelineStateModel.CategoryType.fromName(actionTypeCategory);
     }
 
     public String getRegion() {
@@ -112,7 +122,7 @@ public final class CodePipelineStateModel {
     }
 
     public void setRegion(final String region) {
-            this.region = trimWhitespace(region);
+        this.region = trimWhitespace(region);
     }
 
     public String getProxyHost() {
@@ -129,7 +139,6 @@ public final class CodePipelineStateModel {
 
     public void setProxyPort(String proxyPort) {
         int portNum = 0;
-
         proxyPort = trimWhitespace(proxyPort);
 
         if (proxyPort != null && !proxyPort.isEmpty()) {
@@ -149,7 +158,7 @@ public final class CodePipelineStateModel {
     }
 
     public void setAwsAccessKey(final String awsAccessKey) {
-            this.awsAccessKey = trimWhitespace(awsAccessKey);
+        this.awsAccessKey = trimWhitespace(awsAccessKey);
     }
 
     public String getAwsSecretKey() {
@@ -157,7 +166,7 @@ public final class CodePipelineStateModel {
     }
 
     public void setAwsSecretKey(final String awsSecretKey) {
-            this.awsSecretKey = trimWhitespace(awsSecretKey);
+        this.awsSecretKey = trimWhitespace(awsSecretKey);
     }
 
     public String getJobID() {
@@ -165,7 +174,7 @@ public final class CodePipelineStateModel {
     }
 
     public void setJobID(final String jobID) {
-            this.jobID = trimWhitespace(jobID);
+        this.jobID = trimWhitespace(jobID);
     }
 
     public void clearJob() {

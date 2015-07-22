@@ -36,14 +36,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class UploadTools {
-    private final LoggingHelper logHelper;
+public final class UploadTools {
 
-    public UploadTools() {
-        logHelper = new LoggingHelper();
-    }
+    private UploadTools() { }
 
-    public void putJobResult(
+    public static void putJobResult(
             final boolean buildSucceeded,
             final String errorMessage,
             final String actionID,
@@ -51,7 +48,7 @@ public class UploadTools {
             final AWSClients aws,
             final BuildListener listener) {
         if (buildSucceeded) {
-            logHelper.log(listener, "Build Succeeded. PutJobSuccessResult");
+            LoggingHelper.log(listener, "Build Succeeded. PutJobSuccessResult");
 
             final ExecutionDetails executionDetails = new ExecutionDetails();
             executionDetails.setExternalExecutionId(actionID);
@@ -63,7 +60,7 @@ public class UploadTools {
             aws.getCodePipelineClient().putJobSuccessResult(request);
         }
         else {
-            logHelper.log(listener, "Build Failed. PutJobFailureResult");
+            LoggingHelper.log(listener, "Build Failed. PutJobFailureResult");
 
             final FailureDetails executionDetails = new FailureDetails();
             executionDetails.setExternalExecutionId(actionID);
@@ -77,15 +74,15 @@ public class UploadTools {
         }
     }
 
-    public void uploadFile(
+    public static void uploadFile(
             final File file,
             final Artifact artifact,
             final CodePipelineStateModel.CompressionType compressionType,
             final BasicSessionCredentials temporaryCredentials,
             final AWSClients aws,
             final BuildListener listener)
-            throws IOException, InterruptedException {
-        logHelper.log(listener, "Uploading Artifact: " + artifact + ", file: " + file);
+            throws IOException {
+        LoggingHelper.log(listener, "Uploading Artifact: " + artifact + ", file: " + file);
 
         final String bucketName = artifact.getLocation().getS3Location().getBucketName();
         final String objectKey  = artifact.getLocation().getS3Location().getObjectKey();
@@ -132,10 +129,10 @@ public class UploadTools {
 
         amazonS3.completeMultipartUpload(completeMultipartUpload);
 
-        logHelper.log(listener, "Upload Successful");
+        LoggingHelper.log(listener, "Upload Successful");
     }
 
-    public ObjectMetadata detectCompressionType(final CodePipelineStateModel.CompressionType type) {
+    public static ObjectMetadata detectCompressionType(final CodePipelineStateModel.CompressionType type) {
         final ObjectMetadata objectMetadata = new ObjectMetadata();
         objectMetadata.setContentType("application/zip");
 

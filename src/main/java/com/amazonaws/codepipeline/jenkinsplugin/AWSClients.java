@@ -20,23 +20,23 @@ import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.codepipeline.AmazonCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 
 public class AWSClients {
-    private static CodePipelineStateModel    model;
-    private final  AmazonCodePipelineClient  codePipelineClient;
-    private final  ClientConfiguration       clientCfg;
+    private final AWSCodePipelineClient codePipelineClient;
+    private final ClientConfiguration   clientCfg;
+    private final Region                region;
 
     public AWSClients(
-            final String region,
+            final Region region,
             final AWSCredentials credentials,
             final String proxyHost,
             final int proxyPort) {
-        final CodePipelineStateService service = new CodePipelineStateService();
 
-        model       = service.getModel();
-        clientCfg   = new ClientConfiguration();
+        this.region = region;
+        clientCfg = new ClientConfiguration();
 
         if (proxyHost != null && proxyPort > 0) {
             clientCfg.setProxyHost(proxyHost);
@@ -44,29 +44,29 @@ public class AWSClients {
         }
 
         if (credentials == null) {
-            this.codePipelineClient = new AmazonCodePipelineClient(clientCfg);
+            this.codePipelineClient = new AWSCodePipelineClient(clientCfg);
         }
         else {
-            this.codePipelineClient = new AmazonCodePipelineClient(credentials, clientCfg);
+            this.codePipelineClient = new AWSCodePipelineClient(credentials, clientCfg);
         }
 
         if (region == null) {
             this.codePipelineClient.setRegion(Region.getRegion(Regions.US_EAST_1));
         }
         else {
-            this.codePipelineClient.setRegion(Region.getRegion(Regions.fromName(region)));
+            this.codePipelineClient.setRegion(region);
         }
     }
 
     public static AWSClients fromDefaultCredentialChain(
-            final String region,
+            final Region region,
             final String proxyHost,
             final int proxyPort) {
         return new AWSClients(region, null, proxyHost, proxyPort);
     }
 
     public static AWSClients fromBasicCredentials(
-            final String region,
+            final Region region,
             final String awsAccessKey,
             final String awsSecretKey,
             final String proxyHost,
@@ -74,22 +74,19 @@ public class AWSClients {
         return new AWSClients(region, new BasicAWSCredentials(awsAccessKey, awsSecretKey), proxyHost, proxyPort);
     }
 
-    public AmazonS3Client getS3Client(final AWSSessionCredentials sessionCredentials) {
-        AmazonS3Client client = null;
-
-        if (sessionCredentials != null
-                && model != null
-                && model.getRegion() != null
-                && !model.getRegion().isEmpty()) {
-            client = new AmazonS3Client(sessionCredentials, clientCfg.withSignerOverride("AWSS3V4SignerType"));
-            final Regions regions = Regions.fromName(model.getRegion());
-            client.configureRegion(regions);
+    public AmazonS3 getS3Client(final AWSSessionCredentials sessionCredentials) {
+        if (sessionCredentials != null && region != null) {
+            final AmazonS3Client client = new AmazonS3Client(sessionCredentials,
+                    clientCfg.withSignerOverride("AWSS3V4SignerType"));
+            client.setRegion(region);
+            return client;
         }
 
-        return client;
+        return null;
     }
 
-    public AmazonCodePipelineClient getCodePipelineClient() {
+    public AWSCodePipelineClient getCodePipelineClient() {
         return codePipelineClient;
     }
+
 }

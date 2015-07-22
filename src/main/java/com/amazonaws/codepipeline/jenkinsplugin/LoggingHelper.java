@@ -16,13 +16,16 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 
 import hudson.model.TaskListener;
 
-public class LoggingHelper {
-    private void logConsolePrint(final String message) {
-        System.out.println(message);
+public final class LoggingHelper {
+
+    private LoggingHelper() { }
+
+    private static void logConsolePrint(final String message, final Object... params) {
+        System.out.println(String.format(message, params));
     }
 
-    public void log(final TaskListener listener, final String message) {
-        final String fullMessage = "[AWS CodePipeline Plugin] " + message;
+    public static void log(final TaskListener listener, final String message, final Object... params) {
+        final String fullMessage = "[AWS CodePipeline Plugin] " + String.format(message, params);
 
         if (listener != null) {
             listener.getLogger().println(fullMessage);
@@ -32,7 +35,7 @@ public class LoggingHelper {
         }
     }
 
-    public void log(final TaskListener listener, final Exception ex) {
+    public static void log(final TaskListener listener, final Exception ex) {
         if (listener != null) {
             log(listener, "Stacktrace:");
             for (final StackTraceElement trace : ex.getStackTrace()) {

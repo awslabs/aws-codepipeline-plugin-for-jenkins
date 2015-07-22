@@ -16,46 +16,40 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import hudson.FilePath;
 import hudson.model.TaskListener;
-
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
-public class DownloadTools {
-    private final LoggingHelper logHelper;
+public final class DownloadTools {
+    private DownloadTools() { }
 
-    public DownloadTools() {
-        logHelper = new LoggingHelper();
-    }
-
-    public void attemptArtifactDownload(
+    public static void attemptArtifactDownload(
             final S3Object     sessionObject,
-            final FilePath     filePath,
+            final File         workspace,
             final String       downloadedFileName,
             final TaskListener listener)
             throws Exception {
+
         streamReadAndDownloadObject(
-            filePath,
+            workspace,
             sessionObject,
             downloadedFileName);
 
-        logHelper.log(listener, "Successfully downloaded the artifacts from CodePipelines");
+        LoggingHelper.log(listener, "Successfully downloaded the artifacts from CodePipelines");
     }
 
-    public void streamReadAndDownloadObject(
-            final FilePath     filePath,
+    public static void streamReadAndDownloadObject(
+            final File         workspace,
             final S3Object     sessionObject,
             final String       downloadedFileName)
-            throws IOException, InterruptedException {
-        final Path path = Paths.get(filePath.getRemote(), downloadedFileName);
-        path.resolve(downloadedFileName);
+            throws IOException {
 
-        try (S3ObjectInputStream objectContents = sessionObject.getObjectContent();
-             OutputStream outputStream = new FileOutputStream(path.toString())) {
+        final File outputFile = new File(workspace, downloadedFileName);
+
+        try (final S3ObjectInputStream objectContents = sessionObject.getObjectContent();
+             final OutputStream outputStream = new FileOutputStream(outputFile)) {
             final int BUFFER_SIZE = 8192;
             final byte[] buffer = new byte[BUFFER_SIZE];
 

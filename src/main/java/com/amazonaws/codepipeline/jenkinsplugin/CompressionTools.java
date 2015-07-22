@@ -14,8 +14,6 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.FilePath;
-import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.util.IOUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -23,6 +21,7 @@ import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,136 +29,139 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.FileNotFoundException;
 import java.net.URL;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CompressionTools {
-    private final CodePipelineStateModel model;
-    private final LoggingHelper logHelper;
+public final class CompressionTools {
 
-    public CompressionTools() {
-        logHelper  = new LoggingHelper();
-        this.model = new CodePipelineStateService().getModel();
-    }
+    private CompressionTools() { }
 
     // Compressing the file to upload to S3 should use the same type of compression as the customer
     // used to zip it up.
-    public File compressFile(
-            final AbstractBuild build,
+    public static File compressFile(
+            final String projectName,
+            final File workspace,
             final String directoryToZip,
+            final CompressionType compressionType,
             final BuildListener listener)
-            throws IOException, InterruptedException {
-        final String projectName = build.getProject().getName();
-        final FilePath filePath  = build.getWorkspace();
+            throws IOException {
+
         File compressedArtifacts = null;
 
-        switch (model.getCompressionType()) {
+        switch (compressionType) {
             case None:
                 // Zip it up if we don't know since zip is the default format for AWS CodePipelines
             case Zip:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".zip");
-                compressZipFile(compressedArtifacts, filePath, directoryToZip, listener);
+                compressZipFile(compressedArtifacts, workspace, directoryToZip, listener);
                 break;
             case Tar:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".tar");
-                compressTarFile(compressedArtifacts, filePath, directoryToZip, listener);
+                compressTarFile(compressedArtifacts, workspace, directoryToZip, listener);
                 break;
             case TarGz:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".tar.gz");
-                compressTarGzFile(compressedArtifacts, filePath, directoryToZip, listener);
+                compressTarGzFile(compressedArtifacts, workspace, directoryToZip, listener);
                 break;
         }
 
         return compressedArtifacts;
     }
 
-    public void compressZipFile(
+    public static void compressZipFile(
             final File temporaryZipFile,
-            final FilePath filePath,
+            final File workspace,
             final String directoryToZip,
             final BuildListener listener)
-            throws IOException, InterruptedException {
-        try (ZipArchiveOutputStream zipArchiveOutputStream =
+            throws IOException {
+
+        try (final ZipArchiveOutputStream zipArchiveOutputStream =
                      new ZipArchiveOutputStream(
                      new BufferedOutputStream(
                      new FileOutputStream(temporaryZipFile)))) {
 
             compressArchive(
-                    filePath,
+                    workspace,
                     directoryToZip,
                     zipArchiveOutputStream,
                     new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.Zip),
+                    CodePipelineStateModel.CompressionType.Zip,
                     listener);
         }
     }
 
-    public void compressTarFile(
+    public static void compressTarFile(
             final File temporaryTarFile,
-            final FilePath filePath,
-            final String directoryToZip,
-            final BuildListener listener)
-            throws IOException, InterruptedException {
-        try (TarArchiveOutputStream tarArchiveOutputStream =
-                     new TarArchiveOutputStream(
-                     new BufferedOutputStream(
-                     new FileOutputStream(temporaryTarFile)))) {
-            compressArchive(
-                    filePath,
-                    directoryToZip,
-                    tarArchiveOutputStream,
-                    new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.Tar),
-                    listener);
-        }
-    }
-
-    public void compressTarGzFile(
-            final File temporaryTarGzFile,
-            final FilePath filePath,
+            final File workspace,
             final String directoryToZip,
             final BuildListener listener)
             throws IOException {
-        try (TarArchiveOutputStream tarGzArchiveOutputStream =
+
+        try (final TarArchiveOutputStream tarArchiveOutputStream =
+                     new TarArchiveOutputStream(
+                     new BufferedOutputStream(
+                     new FileOutputStream(temporaryTarFile)))) {
+
+            compressArchive(
+                    workspace,
+                    directoryToZip,
+                    tarArchiveOutputStream,
+                    new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.Tar),
+                    CodePipelineStateModel.CompressionType.Tar,
+                    listener);
+        }
+    }
+
+    public static void compressTarGzFile(
+            final File temporaryTarGzFile,
+            final File workspace,
+            final String directoryToZip,
+            final BuildListener listener)
+            throws IOException {
+
+        try (final TarArchiveOutputStream tarGzArchiveOutputStream =
                 new TarArchiveOutputStream(
                 new BufferedOutputStream(
                 new GzipCompressorOutputStream(
                 new FileOutputStream(temporaryTarGzFile))))) {
             compressArchive(
-                    filePath,
+                    workspace,
                     directoryToZip,
                     tarGzArchiveOutputStream,
                     new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.TarGz),
+                    CodePipelineStateModel.CompressionType.TarGz,
                     listener);
         }
     }
 
-    private void compressArchive(
-            final FilePath filePath,
+    private static void compressArchive(
+            final File workspace,
             final String directoryToZip,
             final ArchiveOutputStream archiveOutputStream,
             final ArchiveEntryFactory archiveEntryFactory,
+            final CompressionType compressionType,
             final BuildListener listener)
             throws IOException {
 
-        logHelper.log(listener, String.format("Compressing Directory '%s' as a '%s' archive",
-                directoryToZip,
-                model.getCompressionType().name()));
+        final Path pathToCompress = resolveCompressionPath(directoryToZip, workspace);
+        final List<File> files = addFilesToCompress(pathToCompress);
 
-        String toCompress = resolveCompressionPath(directoryToZip, filePath);
-        final File directoryToCompress = new File(toCompress);
-        final List<File> files = addFilesToCompress(directoryToCompress);
+        LoggingHelper.log(listener, "Compressing Directory '%s' as a '%s' archive",
+                pathToCompress.toString(),
+                compressionType.name());
 
         for (final File file : files) {
-            if (!toCompress.endsWith(File.separator)) {
-                toCompress += File.separator;
-            }
-
-            final String newTarFileName = file.toString().replace(toCompress, "");
+            final String newTarFileName = pathToCompress.relativize(file.toPath()).toString();
             final ArchiveEntry archiveEntry = archiveEntryFactory.create(file, newTarFileName);
             archiveOutputStream.putArchiveEntry(archiveEntry);
 
-            try (FileInputStream fileInputStream = new FileInputStream(file)) {
+            try (final FileInputStream fileInputStream = new FileInputStream(file)) {
                 IOUtils.copy(fileInputStream, archiveOutputStream);
             }
 
@@ -167,75 +169,32 @@ public class CompressionTools {
         }
     }
 
-    public List<File> addFilesToCompress(final File fileToCompress) throws IOException {
+    public static List<File> addFilesToCompress(final Path pathToCompress) throws IOException {
         final List<File> files = new ArrayList<>();
 
-        if (fileToCompress == null) {
-            return files;
-        }
-
-        if (fileToCompress.isDirectory()) {
-            final File[] fileList = fileToCompress.listFiles();
-
-            if (fileList != null) {
-                for (final File file : fileList) {
-                    files.addAll(addDirectoryToCompress(file));
+        if (pathToCompress != null) {
+            Files.walkFileTree(pathToCompress, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                    files.add(file.toFile());
+                    return FileVisitResult.CONTINUE;
                 }
-            }
-            else {
-                throw new FileNotFoundException("Unable to List Files in directory "
-                        + fileToCompress.getCanonicalPath());
-            }
-        }
-        else {
-            files.add(fileToCompress);
+            });
         }
 
         return files;
     }
 
-    public List<File> addDirectoryToCompress(final File directoryToCompress) throws IOException {
-        final List<File> files = new ArrayList<>();
-
-        if (directoryToCompress == null) {
-            return files;
-        }
-
-        if (directoryToCompress.isDirectory()) {
-            final File[] fileList = directoryToCompress.listFiles();
-
-            if (fileList != null) {
-                for (final File file : fileList) {
-                    if (file.isDirectory()) {
-                        files.addAll(addDirectoryToCompress(file));
-                    }
-                    else {
-                        files.add(file);
-                    }
-                }
-            }
-            else {
-                throw new FileNotFoundException("Unable to List Files in directory "
-                        + directoryToCompress.getCanonicalPath());
-            }
-        }
-        else {
-            files.add(directoryToCompress);
-        }
-
-        return files;
-    }
-
-    public String resolveCompressionPath(
+    public static Path resolveCompressionPath(
             final String userOutputPath,
-            final FilePath filePath)
+            final File workspace)
             throws FileNotFoundException {
-        Path path = null;
-        final String directoryToCompress;
 
-        if (filePath != null) {
-            if (!userOutputPath.contains(filePath.getRemote())) {
-                path = Paths.get(filePath.getRemote(), userOutputPath);
+        Path path = null;
+
+        if (workspace != null) {
+            if (!userOutputPath.contains(workspace.getAbsolutePath())) {
+                path = Paths.get(workspace.getAbsolutePath(), userOutputPath);
             }
             else {
                 path = Paths.get(userOutputPath);
@@ -243,7 +202,7 @@ public class CompressionTools {
         }
         else {
             final String attemptPath;
-            final URL tmp = this.getClass().getClassLoader().getResource("");
+            final URL tmp = CompressionTools.class.getClassLoader().getResource("");
             if (tmp != null) {
                 attemptPath = tmp.getPath();
             }
@@ -262,8 +221,6 @@ public class CompressionTools {
         }
 
         path.resolve(userOutputPath);
-        directoryToCompress = path.toString();
-
-        return directoryToCompress;
+        return path;
     }
 }

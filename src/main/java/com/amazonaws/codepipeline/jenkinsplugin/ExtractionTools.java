@@ -14,64 +14,64 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import static org.apache.commons.io.FileUtils.deleteDirectory;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.Serializable;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.s3.model.S3Object;
-import hudson.FilePath;
 import hudson.model.TaskListener;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import static org.apache.commons.io.FileUtils.deleteDirectory;
 
-public class ExtractionTools {
-    private final LoggingHelper logHelper;
-    private final CodePipelineStateModel model;
+public final class ExtractionTools {
 
-    public ExtractionTools() {
-        logHelper = new LoggingHelper();
-        this.model = new CodePipelineStateService().getModel();
-    }
+    private ExtractionTools() { }
 
-    private void extractZip(
-            final String sourcePath,
-            final String destination)
+    private static void extractZip(
+            final File source,
+            final File destination)
             throws IOException {
-        final File sourceFile = new File(sourcePath);
-        try (ArchiveInputStream zipArchiveInputStream
-                     = new ZipArchiveInputStream(new FileInputStream(sourceFile))) {
+
+        try (final ArchiveInputStream zipArchiveInputStream
+                     = new ZipArchiveInputStream(new FileInputStream(source))) {
             extractArchive(destination, zipArchiveInputStream);
         }
     }
 
-    private void extractTar(
-            final String sourcePath,
-            final String destination)
+    private static void extractTar(
+            final File source,
+            final File destination)
             throws IOException {
-        final File sourceFile = new File(sourcePath);
-        try (ArchiveInputStream tarArchiveInputStream
-                     = new TarArchiveInputStream(new FileInputStream(sourceFile))) {
+
+        try (final ArchiveInputStream tarArchiveInputStream
+                     = new TarArchiveInputStream(new FileInputStream(source))) {
             extractArchive(destination, tarArchiveInputStream);
         }
     }
 
-    private void extractTarGz(
-            final String sourcePath,
-            final String destination)
+    private static void extractTarGz(
+            final File source,
+            final File destination)
             throws IOException {
-        final File sourceFile = new File(sourcePath);
-        try (ArchiveInputStream tarGzArchiveInputStream
-                     = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(sourceFile)))) {
+
+        try (final ArchiveInputStream tarGzArchiveInputStream
+                     = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(source)))) {
             extractArchive(destination, tarGzArchiveInputStream);
         }
     }
 
-    private void extractArchive(final String destination, final ArchiveInputStream archiveInputStream) throws IOException {
+    private static void extractArchive(
+            final File destination,
+            final ArchiveInputStream archiveInputStream)
+            throws IOException {
         final int BUFFER_SIZE = 8192;
         ArchiveEntry entry = archiveInputStream.getNextEntry();
 
@@ -84,7 +84,7 @@ public class ExtractionTools {
                 destinationFile.mkdir();
             }
             else {
-                try (OutputStream fileOutputStream = new FileOutputStream(destinationFile)) {
+                try (final OutputStream fileOutputStream = new FileOutputStream(destinationFile)) {
                     final byte[] buffer = new byte[BUFFER_SIZE];
                     int bytesRead;
 
@@ -98,31 +98,24 @@ public class ExtractionTools {
         }
     }
 
-    public String getFullCompressedFilePath(final String file, final String directory) throws IOException {
-        String fullPath = directory;
-        fullPath += File.separator;
-        fullPath += file;
+    public static void deleteTemporaryCompressedFile(
+            final File fileToDelete,
+            final TaskListener listener)
+            throws IOException {
 
-        return fullPath;
-    }
-
-    public void deleteTemporaryCompressedFile(final String fileToDelete, final TaskListener listener) throws IOException {
-        final File toDelete = new File(fileToDelete);
-
-        if (toDelete.isDirectory()) {
-            deleteDirectory(toDelete);
+        if (fileToDelete.isDirectory()) {
+            deleteDirectory(fileToDelete);
         }
-        else{
-            if (!toDelete.delete()) {
+        else {
+            if (!fileToDelete.delete()) {
                 throw new IOException("Couldn't delete directories");
             }
         }
     }
 
-    public CodePipelineStateModel.CompressionType getCompressionType(final S3Object sessionObject, final TaskListener l) {
+    public static CodePipelineStateModel.CompressionType getCompressionType(final S3Object sessionObject, final TaskListener l) {
         final String   key = sessionObject.getKey();
-        CodePipelineStateModel.CompressionType compressionType
-                = CodePipelineStateModel.CompressionType.None;
+        CodePipelineStateModel.CompressionType compressionType = CodePipelineStateModel.CompressionType.None;
 
         if (endsWithLowerCase(key, ".zip")) {
             compressionType = CodePipelineStateModel.CompressionType.Zip;
@@ -150,30 +143,34 @@ public class ExtractionTools {
             }
         }
 
-        logHelper.log(l, "Detected compression type: " + compressionType.name());
+        LoggingHelper.log(l, "Detected compression type: %s", compressionType.name());
         return compressionType;
     }
 
-    public boolean endsWithLowerCase(final String input, final String postFix) {
+    public static boolean endsWithLowerCase(final String input, final String postFix) {
         return input.toLowerCase().endsWith(postFix.toLowerCase());
     }
 
-    public void decompressFile(
-            final String downloadedFileName,
-            final FilePath filePath,
-            final TaskListener listener) throws IOException{
-        logHelper.log(listener, String.format("Extracting '%s' to '%s'", downloadedFileName, filePath.getRemote()));
-        switch (model.getCompressionType()) {
+    public static void decompressFile(
+            final File downloadedFile,
+            final File workspace,
+            final CompressionType compressionType,
+            final TaskListener listener) throws IOException {
+
+        LoggingHelper.log(listener, "Extracting '%s' to '%s'",
+                downloadedFile.getAbsolutePath(), workspace.getAbsolutePath());
+
+        switch (compressionType) {
             case None:
                 // Attempt to decompress with Zip if it is unknown
             case Zip:
-                extractZip(downloadedFileName, filePath.getRemote());
+                extractZip(downloadedFile, workspace);
                 break;
             case Tar:
-                extractTar(downloadedFileName, filePath.getRemote());
+                extractTar(downloadedFile, workspace);
                 break;
             case TarGz:
-                extractTarGz(downloadedFileName, filePath.getRemote());
+                extractTarGz(downloadedFile, workspace);
                 break;
         }
     }
