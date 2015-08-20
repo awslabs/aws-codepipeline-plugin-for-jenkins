@@ -21,6 +21,12 @@ import static org.apache.commons.lang.StringEscapeUtils.escapeJava;
 import static org.apache.commons.lang.StringEscapeUtils.escapeSql;
 
 public class Validation {
+    // These come from AWS CodePipeline specifications
+    public static final int MAX_VERSION_LENGTH = 9;
+    public static final int MAX_PROVIDER_LENGTH = 25;
+    public static final int MAX_PROJECT_NAME_LENGTH = 20;
+    public static final int MAX_ARTIFACTS = 5;
+
     public static String sanitize(final String string) {
         String sanitized = string;
         sanitized = escapeHtml(sanitized);
@@ -35,11 +41,9 @@ public class Validation {
             final String projectName,
             final TaskListener listener)
             throws IllegalArgumentException {
-        final int MAX_LENGTH = 20;
-
-        if (projectName.length() > MAX_LENGTH) {
+        if (projectName.length() > MAX_PROJECT_NAME_LENGTH) {
             final String error = "Project Name is too long, AWSCodePipeline Project Names must be less than "
-                    + MAX_LENGTH + " characters, you entered " + projectName.length() + " characters";
+                    + MAX_PROJECT_NAME_LENGTH + " characters, you entered " + projectName.length() + " characters";
             LoggingHelper.log(listener, error);
             throw new IllegalArgumentException(error);
         }
@@ -55,27 +59,22 @@ public class Validation {
     }
 
     public static void numberOfOutPutsIsValid(final List<?> artifacts){
-        final int maxArtifacts = 5;
-
-        if (artifacts.size() > maxArtifacts) {
-            // TODO: pull from client number of artifacts allowed
-            throw new IllegalArgumentException("The maximum number of output artifacts allowed is " + maxArtifacts);
+        if (artifacts.size() > MAX_ARTIFACTS) {
+            throw new IllegalArgumentException("The maximum number of output artifacts allowed is: " + MAX_ARTIFACTS
+            + " You provided: " + artifacts.size());
         }
     }
 
     public static void validatePlugin(
+            final String awsAccessKey,
+            final String awsSecretKey,
+            final String region,
             final String actionTypeCategory,
             final String actionTypeProvider,
             final String actionTypeVersion,
             final String projectName,
-            final CodePipelineStateModel model,
             final TaskListener taskListener) {
         boolean canThrow = false;
-
-        if (model == null) {
-            final String error = "The client was not saved correctly";
-            throw new hudson.model.Failure(error);
-        }
 
         String allErrors = "\nPlugin is not setup properly, you may be missing fields in the " +
                 "configuration";
@@ -91,13 +90,13 @@ public class Validation {
             canThrow = true;
         }
 
-        if (!credentialsAreValid(model)) {
+        if (!credentialsAreValid(awsAccessKey, awsSecretKey)) {
             final String error = "Credentials are not valid";
             allErrors += "\n" + error;
             canThrow = true;
         }
 
-        if (!regionIsValid(model)) {
+        if (!regionIsValid(region)) {
             final String error = "The Region is not set to a valid region";
             allErrors += "\n" + error;
             canThrow = true;
@@ -111,44 +110,39 @@ public class Validation {
             canThrow = true;
         }
 
-        if (!model.areAllPluginsInstalled()) {
-            final String error = "You are missing the AWS CodePipeline Publisher Post-Build Step, " +
-                    "make sure you add that to your Post-Build Actions";
-
-            LoggingHelper.log(taskListener, error);
-            allErrors += "\n" + error + "\n";
-            canThrow = true;
-        }
-
         if (canThrow) {
             throw new hudson.model.Failure(allErrors);
         }
     }
 
-    private static boolean credentialsAreValid(final CodePipelineStateModel model) {
-        return
-                model.getAwsAccessKey() != null &&
-                model.getAwsSecretKey() != null &&
-                ((model.getAwsAccessKey().isEmpty() && model.getAwsSecretKey().isEmpty()) ||
-                    (!model.getAwsAccessKey().isEmpty() && !model.getAwsSecretKey().isEmpty()));
+    private static boolean credentialsAreValid(final String awsAccessKey, final String awsSecretKey) {
+        return awsAccessKey != null &&
+                awsSecretKey != null &&
+               ((awsAccessKey.isEmpty() && awsSecretKey.isEmpty()) ||
+                    (!awsAccessKey.isEmpty() && !awsSecretKey.isEmpty()));
     }
 
-    private static boolean regionIsValid(final CodePipelineStateModel model) {
-        return model.getRegion() != null
-                && !model.getRegion().isEmpty();
+    private static boolean regionIsValid(final String region) {
+        return region != null
+                && !region.isEmpty();
     }
 
     private static boolean actionTypeIsValid(
             final String actionTypeCategory,
             final String actionTypeProvider,
             final String actionTypeVersion) {
-        return  actionTypeCategory != null && !actionTypeCategory.isEmpty() &&
-                (actionTypeCategory.equals("Build") || actionTypeCategory.equals("Test")) &&
-                actionTypeProvider != null && !actionTypeProvider.isEmpty() &&
-                actionTypeVersion != null && !actionTypeVersion.isEmpty();
+        final boolean actionTypeNotEmpty =
+                        actionTypeCategory != null && !actionTypeCategory.isEmpty() &&
+                        !actionTypeCategory.equalsIgnoreCase("Please Choose A Category") &&
+                        actionTypeProvider != null && !actionTypeProvider.isEmpty() &&
+                        actionTypeVersion != null && !actionTypeVersion.isEmpty();
+
+        return actionTypeNotEmpty &&
+                actionTypeProvider.length() <= MAX_PROVIDER_LENGTH &&
+                actionTypeVersion.length() <= MAX_VERSION_LENGTH;
     }
 
     private static boolean projectNameIsValid(final String projectName) {
-        return projectName != null && !projectName.isEmpty();
+        return projectName != null && !projectName.isEmpty() && projectName.length() <= MAX_PROJECT_NAME_LENGTH;
     }
 }

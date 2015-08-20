@@ -14,47 +14,12 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.codepipeline.model.Artifact;
-
-import org.apache.commons.lang.StringUtils;
+import com.amazonaws.services.codepipeline.model.Job;
 
 import java.io.Serializable;
-import java.util.List;
 
-public final class CodePipelineStateModel implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    public final Regions[] AVAILABLE_REGIONS = { Regions.US_EAST_1 };
-    public final CategoryType[]  ACTION_TYPE =
-            { CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
-
-    private String region;
-    private String proxyHost;
-    private int    proxyPort;
-    private String awsAccessKey;
-    private String awsSecretKey;
-
-    private String jobID;
-    private CompressionType compressionType;
-    private List<Artifact> outputBuildArtifacts;
-    private CategoryType   actionTypeCategory;
-    private boolean        allPluginsInstalled = false;
-
-    public CodePipelineStateModel() {
-        region               = null;
-        proxyHost            = null;
-        proxyPort            = 0;
-        awsAccessKey         = null;
-        awsSecretKey         = null;
-        jobID                = null;
-        compressionType      = CompressionType.None;
-        actionTypeCategory = CategoryType.PleaseChooseACategory;
-        outputBuildArtifacts = null;
-        setAllPluginsInstalled(false);
-    }
-
+public class CodePipelineStateModel implements Serializable {
     public enum CompressionType {
         None,
         Zip,
@@ -88,33 +53,26 @@ public final class CodePipelineStateModel implements Serializable {
         }
     }
 
-    public AWSClients getAwsClient() {
-        final Region awsRegion = Region.getRegion(Regions.fromName(region));
-        final AWSClients aws;
+    private static final long serialVersionUID = 1L;
+    public static final Regions[] AVAILABLE_REGIONS = { Regions.US_EAST_1 };
+    public static final CategoryType[] ACTION_TYPE =
+            { CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
 
-        if (StringUtils.isEmpty(awsAccessKey) && StringUtils.isEmpty(awsSecretKey)) {
-            aws = AWSClients.fromDefaultCredentialChain(
-                    awsRegion,
-                    proxyHost,
-                    proxyPort);
-        }
-        else {
-            aws = AWSClients.fromBasicCredentials(
-                    awsRegion,
-                    awsAccessKey,
-                    awsSecretKey,
-                    proxyHost,
-                    proxyPort);
-        }
-        return aws;
+    private CompressionType compressionType;
+    private CategoryType actionTypeCategory;
+    private Job job;
+    private String awsAccessKey;
+    private String awsSecretKey;
+    private String proxyHost;
+    private int proxyPort;
+    private String region;
+
+    public int getProxyPort() {
+        return proxyPort;
     }
 
-    public CategoryType getActionTypeCategory() {
-        return actionTypeCategory;
-    }
-
-    public void setActionTypeCategory(final String actionTypeCategory) {
-        this.actionTypeCategory = CodePipelineStateModel.CategoryType.fromName(actionTypeCategory);
+    public void setProxyPort(final int proxyPort) {
+        this.proxyPort = proxyPort;
     }
 
     public String getRegion() {
@@ -122,7 +80,7 @@ public final class CodePipelineStateModel implements Serializable {
     }
 
     public void setRegion(final String region) {
-        this.region = trimWhitespace(region);
+        this.region = region;
     }
 
     public String getProxyHost() {
@@ -130,35 +88,7 @@ public final class CodePipelineStateModel implements Serializable {
     }
 
     public void setProxyHost(final String proxyHost) {
-            this.proxyHost = trimWhitespace(proxyHost);
-    }
-
-    public int getProxyPort() {
-        return proxyPort;
-    }
-
-    public void setProxyPort(String proxyPort) {
-        int portNum = 0;
-        proxyPort = trimWhitespace(proxyPort);
-
-        if (proxyPort != null && !proxyPort.isEmpty()) {
-            try {
-                portNum = Integer.valueOf(proxyPort);
-            }
-            catch (final NumberFormatException ex) {
-                portNum = 0;
-            }
-        }
-
-        this.proxyPort = portNum;
-    }
-
-    public String getAwsAccessKey() {
-        return awsAccessKey;
-    }
-
-    public void setAwsAccessKey(final String awsAccessKey) {
-        this.awsAccessKey = trimWhitespace(awsAccessKey);
+        this.proxyHost = proxyHost;
     }
 
     public String getAwsSecretKey() {
@@ -166,19 +96,40 @@ public final class CodePipelineStateModel implements Serializable {
     }
 
     public void setAwsSecretKey(final String awsSecretKey) {
-        this.awsSecretKey = trimWhitespace(awsSecretKey);
+        this.awsSecretKey = awsSecretKey;
     }
 
-    public String getJobID() {
-        return jobID;
+    public String getAwsAccessKey() {
+        return awsAccessKey;
     }
 
-    public void setJobID(final String jobID) {
-        this.jobID = trimWhitespace(jobID);
+    public void setAwsAccessKey(final String awsAccessKey) {
+        this.awsAccessKey = awsAccessKey;
+    }
+
+    public CodePipelineStateModel() {
+        compressionType      = CompressionType.None;
+        actionTypeCategory   = CategoryType.PleaseChooseACategory;
+    }
+
+    public CategoryType getActionTypeCategory() {
+        return actionTypeCategory;
+    }
+
+    public void setActionTypeCategory(final String actionTypeCategory) {
+        this.actionTypeCategory = CategoryType.fromName(actionTypeCategory);
     }
 
     public void clearJob() {
-        jobID = null;
+        job = null;
+    }
+
+    public void setJob(final Job job) {
+        this.job = job;
+    }
+
+    public Job getJob() {
+        return job;
     }
 
     public CompressionType getCompressionType() {
@@ -192,31 +143,5 @@ public final class CodePipelineStateModel implements Serializable {
         else {
             this.compressionType = compressionType;
         }
-    }
-
-    public List<Artifact> getOutputBuildArtifacts() {
-        return outputBuildArtifacts;
-    }
-
-    public void setOutputBuildArtifacts(final List<Artifact> outputBuildArtifacts) {
-        this.outputBuildArtifacts = outputBuildArtifacts;
-    }
-
-    public String trimWhitespace(final String str) {
-        String output = null;
-
-        if (str != null) {
-            output = str.trim();
-        }
-
-        return output;
-    }
-
-    public boolean areAllPluginsInstalled() {
-        return allPluginsInstalled;
-    }
-
-    public void setAllPluginsInstalled(final boolean allPluginsInstalled) {
-        this.allPluginsInstalled = allPluginsInstalled;
     }
 }

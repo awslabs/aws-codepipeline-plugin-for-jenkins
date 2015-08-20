@@ -14,8 +14,10 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.Launcher;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import hudson.Extension;
+import hudson.Launcher;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
@@ -28,6 +30,7 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -39,15 +42,12 @@ import java.util.List;
  * It only works together with the CodePipeline SCM plugin to get access to the Job Data, Credentials and Proxy.
  */
 public class AWSCodePipelinePublisher extends Notifier {
-    private final CodePipelineStateModel model;
-
     private final List<OutputTuple> buildOutputs;
+    private AWSClientFactory awsClientFactory;
 
     @DataBoundConstructor
     public AWSCodePipelinePublisher(final JSONArray outputLocations) {
-        final CodePipelineStateService service = new CodePipelineStateService();
-        model            = service.getModel();
-        buildOutputs     = new ArrayList<>();
+        buildOutputs = new ArrayList<>();
 
         if (outputLocations != null) {
             for (final Object aJsonBuildArray : outputLocations) {
@@ -60,8 +60,14 @@ public class AWSCodePipelinePublisher extends Notifier {
             }
         }
 
-        model.setAllPluginsInstalled(true);
+        awsClientFactory = new AWSClientFactory();
         Validation.numberOfOutPutsIsValid(buildOutputs);
+    }
+
+
+    public AWSCodePipelinePublisher(final JSONArray outputLocations, final AWSClientFactory awsClientFactory) {
+        this(outputLocations);
+        this.awsClientFactory = awsClientFactory;
     }
 
     @Override
@@ -69,46 +75,54 @@ public class AWSCodePipelinePublisher extends Notifier {
             final AbstractBuild<?,?> action,
             final Launcher launcher,
             final BuildListener listener) {
+        final CodePipelineStateModel model = CodePipelineStateService.getModel();
 
         final boolean actionSucceeded = action.getResult() == Result.SUCCESS;
         boolean awsStatus = actionSucceeded;
         String error = "Failed";
 
-        final AWSClients aws = model.getAwsClient();
+        if (model == null) {
+            LoggingHelper.log(listener, "Error with Model Thread Handling");
+            return false;
+        }
+
+        final AWSClients aws = awsClientFactory.getAwsClient(
+                model.getAwsAccessKey(),
+                model.getAwsSecretKey(),
+                model.getProxyHost(),
+                model.getProxyPort(),
+                model.getRegion());
 
         if (!actionSucceeded) {
-            if (model.getActionTypeCategory() == CodePipelineStateModel.CategoryType.Build) {
+            if (model.getActionTypeCategory() == CategoryType.Build) {
                 error = "Build failed";
             }
-            else if (model.getActionTypeCategory() == CodePipelineStateModel.CategoryType.Test) {
+            else if (model.getActionTypeCategory() == CategoryType.Test) {
                 error = "Tests failed";
             }
         }
 
         // This is here if the customer pressed BuildNow, we have nowhere to push
         // or update. But we want to see if we can build what we have.
-        if (model.getJobID() == null || model.getJobID().isEmpty()) {
+        if (model.getJob() == null) {
+            LoggingHelper.log(listener, "No Job, returning early");
             return actionSucceeded;
         }
 
         try {
             LoggingHelper.log(listener, "Publishing artifacts");
 
-            if (model.getOutputBuildArtifacts().size() != buildOutputs.size()) {
+            if (model.getJob().getData().getOutputArtifacts().size() != buildOutputs.size()) {
                 throw new IllegalArgumentException(String.format(
                             "Error: number of output locations and number of CodePipeline outputs are "
                             + "different. Number of outputs: %d, Number of pipeline artifacts: %d. "
                             + "The number of build artifacts should match the number of output artifacts specified",
                             buildOutputs.size(),
-                            model.getOutputBuildArtifacts().size()));
+                            model.getJob().getData().getOutputArtifacts().size()));
             }
 
             if (!buildOutputs.isEmpty() && actionSucceeded) {
-                action.getWorkspace().act(new UploadCallable(
-                            action.getProject().getName(),
-                            model,
-                            buildOutputs,
-                            listener));
+                callPublish(action, model, listener);
             }
         }
         catch (final IllegalArgumentException | InterruptedException | IOException ex) {
@@ -118,22 +132,36 @@ public class AWSCodePipelinePublisher extends Notifier {
             awsStatus = false;
         }
         finally {
-            UploadTools.putJobResult(
+            PublisherTools.putJobResult(
                     awsStatus,
                     error,
                     action.getId(),
-                    model.getJobID(),
+                    model.getJob().getId(),
                     aws,
                     listener);
-            cleanUp();
+            cleanUp(model);
         }
 
         return awsStatus;
     }
 
-    public void cleanUp() {
+    public void cleanUp(final CodePipelineStateModel model) {
         model.clearJob();
-        model.setCompressionType(CodePipelineStateModel.CompressionType.None);
+        model.setCompressionType(CompressionType.None);
+        CodePipelineStateService.removeModel();
+    }
+
+    public void callPublish(
+            final AbstractBuild<?,?> action,
+            final CodePipelineStateModel model,
+            final BuildListener listener)
+            throws IOException, InterruptedException {
+        action.getWorkspace().act(new PublisherCallable(
+                action.getProject().getName(),
+                model,
+                awsClientFactory,
+                buildOutputs,
+                listener));
     }
 
     @Override

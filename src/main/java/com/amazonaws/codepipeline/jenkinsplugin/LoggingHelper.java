@@ -18,7 +18,7 @@ import hudson.model.TaskListener;
 
 public final class LoggingHelper {
 
-    private LoggingHelper() { }
+    private LoggingHelper() {}
 
     private static void logConsolePrint(final String message, final Object... params) {
         System.out.println(String.format(message, params));
@@ -38,9 +38,11 @@ public final class LoggingHelper {
     public static void log(final TaskListener listener, final Exception ex) {
         if (listener != null) {
             log(listener, "Stacktrace:");
+
             for (final StackTraceElement trace : ex.getStackTrace()) {
                 log(listener, trace.toString());
             }
+
             log(listener, "\n");
         }
     }

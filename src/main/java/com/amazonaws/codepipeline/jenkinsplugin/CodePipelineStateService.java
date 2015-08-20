@@ -14,16 +14,25 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+// This class is using ThreadLocal storage to manage the CodePipelineSateModel per thread of execution.
+// This is done for passing data between the SCM and the Publisher Modules in the face of concurrent builds.
+// Otherwise, the Model gets overwritten.
 public class CodePipelineStateService {
-    private static CodePipelineStateModel codePipelineStateModel;
+    private static final ThreadLocal<CodePipelineStateModel> codePipelineStateModel;
 
-    public CodePipelineStateService() {
-        if (codePipelineStateModel == null) {
-            codePipelineStateModel = new CodePipelineStateModel();
-        }
+    static {
+        codePipelineStateModel = new ThreadLocal<>();
     }
 
-    public CodePipelineStateModel getModel() {
-        return codePipelineStateModel;
+    public static void setModel(final CodePipelineStateModel model) {
+        codePipelineStateModel.set(model);
+    }
+
+    public static CodePipelineStateModel getModel() {
+        return codePipelineStateModel.get();
+    }
+
+    public static void removeModel() {
+        codePipelineStateModel.remove();
     }
 }

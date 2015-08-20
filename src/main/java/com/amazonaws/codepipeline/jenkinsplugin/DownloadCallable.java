@@ -14,38 +14,44 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Paths;
-
 import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.S3Object;
-
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import hudson.FilePath.FileCallable;
 import hudson.model.TaskListener;
 import hudson.remoting.VirtualChannel;
 import org.apache.commons.io.FileUtils;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Paths;
+
 public final class DownloadCallable implements FileCallable<Void> {
     private final boolean clearWorkspace;
     private final TaskListener listener;
-    private Job job;
+    private final Job job;
     private final CodePipelineStateModel model;
+    private final AWSClientFactory awsClientFactory;
 
     public DownloadCallable(
             final boolean clearWorkspace,
             final Job job,
             final CodePipelineStateModel model,
+            final AWSClientFactory awsClientFactory,
             final TaskListener listener) {
         this.clearWorkspace = clearWorkspace;
         this.listener = listener;
         this.job = job;
         this.model = model;
+        this.awsClientFactory = awsClientFactory;
     }
 
     @Override
@@ -53,9 +59,9 @@ public final class DownloadCallable implements FileCallable<Void> {
         clearWorkspaceIfSelected(workspace, listener);
 
         for (final Artifact artifact : job.getData().getInputArtifacts()) {
-            final S3Object sessionObject = getS3Object(artifact);
+            final S3Object sessionObject = getS3Object(artifact, awsClientFactory);
 
-            final CodePipelineStateModel.CompressionType compressionType =
+            final CompressionType compressionType =
                     ExtractionTools.getCompressionType(sessionObject, listener);
             model.setCompressionType(compressionType);
 
@@ -87,8 +93,13 @@ public final class DownloadCallable implements FileCallable<Void> {
         }
     }
 
-    public S3Object getS3Object(final Artifact artifact) {
-        final AWSClients aws = model.getAwsClient();
+    public S3Object getS3Object(final Artifact artifact, final AWSClientFactory awsClientFactory) {
+        final AWSClients aws = awsClientFactory.getAwsClient(
+                model.getAwsAccessKey(),
+                model.getAwsSecretKey(),
+                model.getProxyHost(),
+                model.getProxyPort(),
+                model.getRegion());
         final S3ArtifactLocation artifactLocation = artifact.getLocation().getS3Location();
         final AWSSessionCredentials awsSessionCredentials = job.getData().getArtifactCredentials();
 
@@ -98,7 +109,7 @@ public final class DownloadCallable implements FileCallable<Void> {
                 awsSessionCredentials.getSessionToken());
 
         final AmazonS3 client = aws.getS3Client(basicCredentials);
-        final String bucketName     = artifactLocation.getBucketName();
+        final String bucketName = artifactLocation.getBucketName();
 
         return client.getObject(bucketName, artifactLocation.getObjectKey());
     }
@@ -109,8 +120,7 @@ public final class DownloadCallable implements FileCallable<Void> {
             final String downloadedFileName,
             final TaskListener listener)
             throws Exception {
-
-        DownloadTools.attemptArtifactDownload(
+        downloadArtifacts(
                 sessionObject,
                 workspace,
                 downloadedFileName,
@@ -126,12 +136,45 @@ public final class DownloadCallable implements FileCallable<Void> {
         finally {
             if (fullFilePath != null) {
                 try {
-                    ExtractionTools.deleteTemporaryCompressedFile(fullFilePath, listener);
+                    ExtractionTools.deleteTemporaryCompressedFile(fullFilePath);
                 }
                 catch (final IOException ex) {
                     LoggingHelper.log(listener, "Could not delete temporary file: %s", ex.getMessage());
                     LoggingHelper.log(listener, ex);
                 }
+            }
+        }
+    }
+
+    private static void downloadArtifacts(
+            final S3Object sessionObject,
+            final File workspace,
+            final String downloadedFileName,
+            final TaskListener listener)
+            throws IOException {
+        streamReadAndDownloadObject(
+                workspace,
+                sessionObject,
+                downloadedFileName);
+
+        LoggingHelper.log(listener, "Successfully downloaded the artifacts from CodePipelines");
+    }
+
+    private static void streamReadAndDownloadObject(
+            final File         workspace,
+            final S3Object     sessionObject,
+            final String       downloadedFileName)
+            throws IOException {
+        final File outputFile = new File(workspace, downloadedFileName);
+
+        try (final S3ObjectInputStream objectContents = sessionObject.getObjectContent();
+             final OutputStream outputStream = new FileOutputStream(outputFile)) {
+            final int BUFFER_SIZE = 8192;
+            final byte[] buffer = new byte[BUFFER_SIZE];
+
+            int i;
+            while ((i = objectContents.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, i);
             }
         }
     }

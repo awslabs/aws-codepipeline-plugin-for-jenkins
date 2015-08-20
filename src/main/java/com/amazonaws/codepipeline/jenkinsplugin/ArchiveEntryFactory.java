@@ -14,6 +14,7 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -21,9 +22,9 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import java.io.File;
 
 public class ArchiveEntryFactory {
-    final CodePipelineStateModel.CompressionType compressionType;
+    final CompressionType compressionType;
 
-    public ArchiveEntryFactory(final CodePipelineStateModel.CompressionType compressionType) {
+    public ArchiveEntryFactory(final CompressionType compressionType) {
         this.compressionType = compressionType;
     }
 

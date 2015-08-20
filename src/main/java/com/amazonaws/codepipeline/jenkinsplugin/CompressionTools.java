@@ -14,6 +14,7 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import hudson.model.BuildListener;
 import hudson.util.IOUtils;
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -21,13 +22,13 @@ import org.apache.commons.compress.archivers.ArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.FileNotFoundException;
 import java.net.URL;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -39,8 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class CompressionTools {
-
-    private CompressionTools() { }
+    private CompressionTools() {}
 
     // Compressing the file to upload to S3 should use the same type of compression as the customer
     // used to zip it up.
@@ -51,7 +51,6 @@ public final class CompressionTools {
             final CompressionType compressionType,
             final BuildListener listener)
             throws IOException {
-
         File compressedArtifacts = null;
 
         switch (compressionType) {
@@ -80,7 +79,6 @@ public final class CompressionTools {
             final String directoryToZip,
             final BuildListener listener)
             throws IOException {
-
         try (final ZipArchiveOutputStream zipArchiveOutputStream =
                      new ZipArchiveOutputStream(
                      new BufferedOutputStream(
@@ -90,8 +88,8 @@ public final class CompressionTools {
                     workspace,
                     directoryToZip,
                     zipArchiveOutputStream,
-                    new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.Zip),
-                    CodePipelineStateModel.CompressionType.Zip,
+                    new ArchiveEntryFactory(CompressionType.Zip),
+                    CompressionType.Zip,
                     listener);
         }
     }
@@ -102,7 +100,6 @@ public final class CompressionTools {
             final String directoryToZip,
             final BuildListener listener)
             throws IOException {
-
         try (final TarArchiveOutputStream tarArchiveOutputStream =
                      new TarArchiveOutputStream(
                      new BufferedOutputStream(
@@ -112,8 +109,8 @@ public final class CompressionTools {
                     workspace,
                     directoryToZip,
                     tarArchiveOutputStream,
-                    new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.Tar),
-                    CodePipelineStateModel.CompressionType.Tar,
+                    new ArchiveEntryFactory(CompressionType.Tar),
+                    CompressionType.Tar,
                     listener);
         }
     }
@@ -124,7 +121,6 @@ public final class CompressionTools {
             final String directoryToZip,
             final BuildListener listener)
             throws IOException {
-
         try (final TarArchiveOutputStream tarGzArchiveOutputStream =
                 new TarArchiveOutputStream(
                 new BufferedOutputStream(
@@ -134,8 +130,8 @@ public final class CompressionTools {
                     workspace,
                     directoryToZip,
                     tarGzArchiveOutputStream,
-                    new ArchiveEntryFactory(CodePipelineStateModel.CompressionType.TarGz),
-                    CodePipelineStateModel.CompressionType.TarGz,
+                    new ArchiveEntryFactory(CompressionType.TarGz),
+                    CompressionType.TarGz,
                     listener);
         }
     }
@@ -148,7 +144,6 @@ public final class CompressionTools {
             final CompressionType compressionType,
             final BuildListener listener)
             throws IOException {
-
         final Path pathToCompress = resolveCompressionPath(directoryToZip, workspace);
         final List<File> files = addFilesToCompress(pathToCompress);
 
@@ -189,7 +184,6 @@ public final class CompressionTools {
             final String userOutputPath,
             final File workspace)
             throws FileNotFoundException {
-
         Path path = null;
 
         if (workspace != null) {
@@ -213,7 +207,6 @@ public final class CompressionTools {
             if (attemptPath != null) {
                 path = Paths.get(attemptPath);
             }
-
         }
 
         if (path == null) {
@@ -221,6 +214,7 @@ public final class CompressionTools {
         }
 
         path.resolve(userOutputPath);
+
         return path;
     }
 }

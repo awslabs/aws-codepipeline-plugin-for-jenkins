@@ -23,6 +23,7 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import org.apache.commons.lang.Validate;
 
 public class AWSClients {
     private final AWSCodePipelineClient codePipelineClient;
@@ -75,14 +76,13 @@ public class AWSClients {
     }
 
     public AmazonS3 getS3Client(final AWSSessionCredentials sessionCredentials) {
-        if (sessionCredentials != null && region != null) {
-            final AmazonS3Client client = new AmazonS3Client(sessionCredentials,
-                    clientCfg.withSignerOverride("AWSS3V4SignerType"));
-            client.setRegion(region);
-            return client;
-        }
+        Validate.notNull(sessionCredentials);
+        Validate.notNull(region);
 
-        return null;
+        final AmazonS3Client client = new AmazonS3Client(sessionCredentials,
+                clientCfg.withSignerOverride("AWSS3V4SignerType"));
+        client.setRegion(region);
+        return client;
     }
 
     public AWSCodePipelineClient getCodePipelineClient() {
