@@ -14,6 +14,11 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.regions.Regions;
@@ -26,6 +31,7 @@ import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.JobStatus;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
 import com.amazonaws.services.codepipeline.model.PollForJobsResult;
+
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -41,17 +47,14 @@ import hudson.scm.SCMDescriptor;
 import hudson.scm.SCMRevisionState;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
+
 import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
+
     private Job job;
     private final boolean clearWorkspace;
     private final String projectName;
@@ -159,7 +162,6 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             // This is here for if a customer presses BuildNow, it will still attempt a build.
             return true;
         }
-
 
         LoggingHelper.log(listener, "Job '%s' received", model.getJob().getId());
         workspacePath.act(new DownloadCallable(
@@ -316,8 +318,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                     req.getParameter("category"),
                     req.getParameter("provider"),
                     req.getParameter("version"),
-                    new AWSClientFactory()
-            );
+                    new AWSClientFactory());
         }
 
         @Override
@@ -368,53 +369,55 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                                 value.length()));
             }
 
-            return validateInt(value,
-                    i -> i < 0
-                        ? FormValidation.error("Version must be greater than or equal to 0")
-                        : FormValidation.ok(),
-                    "Version");
+            return validateIntIsInRange(value, 0, Integer.MAX_VALUE, "Version",
+                    "Version must be greater than or equal to 0");
         }
 
         public FormValidation doProviderCheck(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.error("Please enter a Provider, typically \"Jenkins\" or your Project Name");
             }
-            else if (value.length() > Validation.MAX_PROVIDER_LENGTH) {
+
+            if (value.length() > Validation.MAX_PROVIDER_LENGTH) {
                 return FormValidation.error(
                         String.format(
                                 "The Provider name is too long, the name should be %d characters, you entered %d characters",
                                 Validation.MAX_PROVIDER_LENGTH,
                                 value.length()));
             }
-            else {
-                return FormValidation.ok();
-            }
+
+            return FormValidation.ok();
         }
 
         public FormValidation doProxyPortCheck(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.ok();
             }
-            else {
-                return validateInt(value,
-                        i -> i < 0 || i > 65535
-                                ? FormValidation.error("Proxy Port must be between 0 and 65535")
-                                : FormValidation.ok(),
-                        "Proxy Port");
-            }
+
+            return validateIntIsInRange(value, 0, 65535, "Proxy Port",
+                    "Proxy Port must be between 0 and 65535");
         }
 
-        private FormValidation validateInt(final String value,
-                                           final Function<Integer, FormValidation> rangeValidator,
-                                           final String propertyName) {
-            try {
-                final int port = Integer.parseInt(value);
+        private FormValidation validateIntIsInRange(
+                final String value,
+                final int lowerBound,
+                final int upperBound,
+                final String propertyName,
+                final String errorMessage) {
 
-                return rangeValidator.apply(port);
+            try {
+                final int intValue = Integer.parseInt(value);
+
+                if (intValue < lowerBound || intValue > upperBound) {
+                    return FormValidation.error(errorMessage);
+                }
+
+                return FormValidation.ok();
             }
             catch (final NumberFormatException ex) {
                 return FormValidation.error(propertyName + " must be a number");
             }
         }
     }
+
 }
