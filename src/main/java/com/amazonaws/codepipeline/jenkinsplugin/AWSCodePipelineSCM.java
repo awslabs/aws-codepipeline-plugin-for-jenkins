@@ -14,10 +14,31 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.BuildListener;
+import hudson.model.TaskListener;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.scm.ChangeLogParser;
+import hudson.scm.NullChangeLogParser;
+import hudson.scm.PollingResult;
+import hudson.scm.SCMDescriptor;
+import hudson.scm.SCMRevisionState;
+import hudson.scm.SCM;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+
+import net.sf.json.JSONObject;
+
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
@@ -31,27 +52,6 @@ import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.JobStatus;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
 import com.amazonaws.services.codepipeline.model.PollForJobsResult;
-
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.BuildListener;
-import hudson.model.TaskListener;
-import hudson.scm.ChangeLogParser;
-import hudson.scm.NullChangeLogParser;
-import hudson.scm.PollingResult;
-import hudson.scm.SCM;
-import hudson.scm.SCMDescriptor;
-import hudson.scm.SCMRevisionState;
-import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
-
-import net.sf.json.JSONObject;
-
-import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
 
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
@@ -82,15 +82,16 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final String provider,
             final String version,
             final AWSClientFactory awsClientFactory) {
-        clearWorkspace = clear;
-        this.region         = Validation.sanitize(region.trim());
-        this.awsAccessKey   = Validation.sanitize(awsAccessKey.trim());
-        this.awsSecretKey   = Validation.sanitize(awsSecretKey.trim());
-        this.proxyHost      = Validation.sanitize(proxyHost.trim());
-        this.projectName    = Validation.sanitize(projectName.trim());
-        actionTypeCategory  = Validation.sanitize(category.trim());
-        actionTypeProvider  = Validation.sanitize(provider.trim());
-        actionTypeVersion   = Validation.sanitize(version.trim());
+
+        clearWorkspace        = clear;
+        this.region           = Validation.sanitize(region.trim());
+        this.awsAccessKey     = Validation.sanitize(awsAccessKey.trim());
+        this.awsSecretKey     = Validation.sanitize(awsSecretKey.trim());
+        this.proxyHost        = Validation.sanitize(proxyHost.trim());
+        this.projectName      = Validation.sanitize(projectName.trim());
+        actionTypeCategory    = Validation.sanitize(category.trim());
+        actionTypeProvider    = Validation.sanitize(provider.trim());
+        actionTypeVersion     = Validation.sanitize(version.trim());
         this.awsClientFactory = awsClientFactory;
 
         if (proxyPort != null && !proxyPort.isEmpty()) {
@@ -122,11 +123,13 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final TaskListener listener,
             final SCMRevisionState revisionState)
             throws IOException, InterruptedException {
+
         final ActionTypeId actionTypeId = new ActionTypeId();
         actionTypeId.setCategory(actionTypeCategory);
         actionTypeId.setOwner(ActionOwner.Custom);
         actionTypeId.setProvider(actionTypeProvider);
         actionTypeId.setVersion(actionTypeVersion);
+
         LoggingHelper.log(listener, "Polling for jobs for action type id: ["
                 + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s]",
                 actionTypeId.getOwner(),
@@ -155,6 +158,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final BuildListener listener,
             final File changeLogFile)
             throws IOException, InterruptedException {
+
         initializeModel();
         final CodePipelineStateModel model = CodePipelineStateService.getModel();
 
@@ -165,11 +169,11 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
         LoggingHelper.log(listener, "Job '%s' received", model.getJob().getId());
         workspacePath.act(new DownloadCallable(
-                                            clearWorkspace,
-                                            model.getJob(),
-                                            model,
-                                            awsClientFactory,
-                                            listener));
+                    clearWorkspace,
+                    model.getJob(),
+                    model,
+                    awsClientFactory,
+                    listener));
 
         return true;
     }
@@ -270,13 +274,13 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     public void initializeModel() {
         final CodePipelineStateModel model = new CodePipelineStateModel();
         model.setActionTypeCategory(actionTypeCategory);
-        model.setCompressionType(CompressionType.None);
         model.setAwsAccessKey(awsAccessKey);
         model.setAwsSecretKey(awsSecretKey);
+        model.setCompressionType(CompressionType.None);
+        model.setJob(job);
         model.setProxyHost(proxyHost);
         model.setProxyPort(proxyPort);
         model.setRegion(region);
-        model.setJob(job);
         CodePipelineStateService.setModel(model);
     }
 
@@ -305,8 +309,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
         @Override
         public SCM newInstance(final StaplerRequest req,
-                               final JSONObject formData)
-                throws FormException {
+                               final JSONObject formData) throws FormException {
             return new AWSCodePipelineSCM(
                     req.getParameter("name"),
                     req.getParameter("clearWorkspace") != null,

@@ -46,4 +46,5 @@ public final class LoggingHelper {
             log(listener, "\n");
         }
     }
+
 }

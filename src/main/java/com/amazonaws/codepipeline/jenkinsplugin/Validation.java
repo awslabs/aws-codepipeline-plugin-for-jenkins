@@ -14,13 +14,15 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.model.TaskListener;
-import java.util.List;
 import static org.apache.commons.lang.StringEscapeUtils.escapeHtml;
 import static org.apache.commons.lang.StringEscapeUtils.escapeJava;
 import static org.apache.commons.lang.StringEscapeUtils.escapeSql;
+import hudson.model.TaskListener;
+
+import java.util.List;
 
 public class Validation {
+
     // These come from AWS CodePipeline specifications
     public static final int MAX_VERSION_LENGTH = 9;
     public static final int MAX_PROVIDER_LENGTH = 25;
@@ -145,4 +147,5 @@ public class Validation {
     private static boolean projectNameIsValid(final String projectName) {
         return projectName != null && !projectName.isEmpty() && projectName.length() <= MAX_PROJECT_NAME_LENGTH;
     }
+
 }

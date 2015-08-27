@@ -14,27 +14,30 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import hudson.Extension;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Result;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Notifier;
 import hudson.tasks.Publisher;
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
 
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.StaplerRequest;
+
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 
 /**
  * The AWS CodePipeline Publisher compresses the artifacts and uploads them to S3.
@@ -42,6 +45,7 @@ import java.util.List;
  * It only works together with the CodePipeline SCM plugin to get access to the Job Data, Credentials and Proxy.
  */
 public class AWSCodePipelinePublisher extends Notifier {
+
     private final List<OutputTuple> buildOutputs;
     private AWSClientFactory awsClientFactory;
 
@@ -231,4 +235,5 @@ public class AWSCodePipelinePublisher extends Notifier {
             return outputString;
         }
     }
+
 }

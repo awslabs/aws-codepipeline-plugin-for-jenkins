@@ -14,9 +14,18 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import hudson.model.BuildListener;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.Artifact;
+import com.amazonaws.services.codepipeline.model.EncryptionKey;
+import com.amazonaws.services.codepipeline.model.EncryptionKeyType;
 import com.amazonaws.services.codepipeline.model.ExecutionDetails;
 import com.amazonaws.services.codepipeline.model.FailureDetails;
 import com.amazonaws.services.codepipeline.model.FailureType;
@@ -30,14 +39,9 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
 import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
 import com.amazonaws.services.s3.model.UploadPartRequest;
-import hudson.model.BuildListener;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class PublisherTools {
+
     private PublisherTools() {}
 
     public static void putJobResult(
@@ -47,6 +51,7 @@ public final class PublisherTools {
             final String jobID,
             final AWSClients aws,
             final BuildListener listener) {
+
         if (buildSucceeded) {
             LoggingHelper.log(listener, "Build Succeeded. PutJobSuccessResult");
 
@@ -78,10 +83,10 @@ public final class PublisherTools {
             final File file,
             final Artifact artifact,
             final CompressionType compressionType,
+            final EncryptionKey encryptionKey,
             final BasicSessionCredentials temporaryCredentials,
             final AWSClients aws,
-            final BuildListener listener)
-            throws IOException {
+            final BuildListener listener) throws IOException {
         LoggingHelper.log(listener, "Uploading Artifact: " + artifact + ", file: " + file);
 
         final String bucketName = artifact.getLocation().getS3Location().getBucketName();
@@ -94,7 +99,7 @@ public final class PublisherTools {
                 bucketName,
                 objectKey,
                 detectCompressionType(compressionType))
-                    .withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
+                    .withSSEAwsKeyManagementParams(toSSEAwsKeyManagementParams(encryptionKey));
 
         final InitiateMultipartUploadResult initiateMultipartUploadResult
                 = amazonS3.initiateMultipartUpload(initiateMultipartUploadRequest);
@@ -134,7 +139,6 @@ public final class PublisherTools {
 
     public static ObjectMetadata detectCompressionType(final CompressionType type) {
         final ObjectMetadata objectMetadata = new ObjectMetadata();
-        objectMetadata.setContentType("application/zip");
 
         switch (type) {
             case Tar:
@@ -143,8 +147,23 @@ public final class PublisherTools {
             case TarGz:
                 objectMetadata.setContentType("application/gzip");
                 break;
+            case Zip:
+            case None:
+                objectMetadata.setContentType("application/zip");
+                break;
         }
 
         return objectMetadata;
     }
+
+    private static SSEAwsKeyManagementParams toSSEAwsKeyManagementParams(final EncryptionKey encryptionKey) {
+        if (encryptionKey != null
+                && encryptionKey.getId() != null
+                && EncryptionKeyType.KMS.toString().equals(encryptionKey.getType())) {
+            return new SSEAwsKeyManagementParams(encryptionKey.getId());
+        }
+
+        return new SSEAwsKeyManagementParams();
+    }
+
 }

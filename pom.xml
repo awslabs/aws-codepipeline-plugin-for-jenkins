@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>codepipeline</artifactId>
-  <version>0.5</version>
+  <version>0.6</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin for Jenkins</name>
@@ -33,6 +33,12 @@
     </license>
   </licenses>
 
+  <scm>
+    <url>https://github.com/awslabs/aws-codepipeline-plugin-for-jenkins</url>
+    <connection>scm:git:git://github.com/awslabs/aws-codepipeline-plugin-for-jenkins.git</connection>
+    <developerConnection>scm:git:git@github.com:awslabs/aws-codepipeline-plugin-for-jenkins.git</developerConnection>
+  </scm>
+
   <repositories>
     <repository>
         <id>repo.jenkins-ci.org</id>
@@ -54,17 +60,24 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk</artifactId>
-      <version>1.10.5</version>
+      <version>1.10.13</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.9</version>
+      <version>1.10</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-      <version>1.9.5</version>
+      <version>1.10.19</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -80,7 +93,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.1</version>
+        <version>3.3</version>
         <configuration>
           <source>1.7</source>
           <target>1.7</target>
@@ -88,8 +101,9 @@
       </plugin>
 
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-release-plugin</artifactId>
-        <version>2.5</version>
+        <version>2.5.2</version>
       </plugin>
     </plugins>
   </build>

@@ -14,6 +14,18 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import hudson.FilePath.FileCallable;
+import hudson.model.TaskListener;
+import hudson.remoting.VirtualChannel;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Paths;
+
+import org.apache.commons.io.FileUtils;
+
 import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
@@ -23,18 +35,11 @@ import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import hudson.FilePath.FileCallable;
-import hudson.model.TaskListener;
-import hudson.remoting.VirtualChannel;
-import org.apache.commons.io.FileUtils;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.file.Paths;
 
 public final class DownloadCallable implements FileCallable<Void> {
+
+    private static final long serialVersionUID = 1L;
+
     private final boolean clearWorkspace;
     private final TaskListener listener;
     private final Job job;
@@ -178,4 +183,5 @@ public final class DownloadCallable implements FileCallable<Void> {
             }
         }
     }
+
 }

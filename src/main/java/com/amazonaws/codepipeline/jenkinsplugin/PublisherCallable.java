@@ -14,12 +14,6 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.auth.BasicSessionCredentials;
-import com.amazonaws.codepipeline.jenkinsplugin.AWSCodePipelinePublisher.OutputTuple;
-import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
-import com.amazonaws.services.codepipeline.model.Artifact;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
 import hudson.FilePath.FileCallable;
 import hudson.model.BuildListener;
 import hudson.remoting.VirtualChannel;
@@ -29,6 +23,13 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+
+import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.codepipeline.jenkinsplugin.AWSCodePipelinePublisher.OutputTuple;
+import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
+import com.amazonaws.services.codepipeline.model.Artifact;
+import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
+import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
 
 public final class PublisherCallable implements FileCallable<Void> {
     private static final long serialVersionUID = 1L;
@@ -88,6 +89,7 @@ public final class PublisherCallable implements FileCallable<Void> {
                         compressedFile,
                         artifact,
                         model.getCompressionType(),
+                        model.getEncryptionKey(),
                         temporaryCredentials,
                         aws,
                         listener);
@@ -98,4 +100,5 @@ public final class PublisherCallable implements FileCallable<Void> {
 
         return null;
     }
+
 }

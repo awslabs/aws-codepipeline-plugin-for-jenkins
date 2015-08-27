@@ -14,14 +14,8 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import hudson.model.BuildListener;
 import hudson.util.IOUtils;
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.ArchiveOutputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -39,7 +33,16 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveOutputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
+
 public final class CompressionTools {
+
     private CompressionTools() {}
 
     // Compressing the file to upload to S3 should use the same type of compression as the customer
@@ -217,4 +220,5 @@ public final class CompressionTools {
 
         return path;
     }
+
 }

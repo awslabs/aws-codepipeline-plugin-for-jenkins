@@ -14,12 +14,16 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import java.io.Serializable;
+import java.util.Objects;
+
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.codepipeline.model.EncryptionKey;
 import com.amazonaws.services.codepipeline.model.Job;
 
-import java.io.Serializable;
-
 public class CodePipelineStateModel implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     public enum CompressionType {
         None,
         Zip,
@@ -53,19 +57,23 @@ public class CodePipelineStateModel implements Serializable {
         }
     }
 
-    private static final long serialVersionUID = 1L;
     public static final Regions[] AVAILABLE_REGIONS = { Regions.US_EAST_1 };
     public static final CategoryType[] ACTION_TYPE =
             { CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
 
-    private CompressionType compressionType;
     private CategoryType actionTypeCategory;
+    private CompressionType compressionType;
     private Job job;
     private String awsAccessKey;
     private String awsSecretKey;
     private String proxyHost;
     private int proxyPort;
     private String region;
+
+    public CodePipelineStateModel() {
+        compressionType      = CompressionType.None;
+        actionTypeCategory   = CategoryType.PleaseChooseACategory;
+    }
 
     public int getProxyPort() {
         return proxyPort;
@@ -107,11 +115,6 @@ public class CodePipelineStateModel implements Serializable {
         this.awsAccessKey = awsAccessKey;
     }
 
-    public CodePipelineStateModel() {
-        compressionType      = CompressionType.None;
-        actionTypeCategory   = CategoryType.PleaseChooseACategory;
-    }
-
     public CategoryType getActionTypeCategory() {
         return actionTypeCategory;
     }
@@ -132,6 +135,13 @@ public class CodePipelineStateModel implements Serializable {
         return job;
     }
 
+    public EncryptionKey getEncryptionKey() {
+        Objects.requireNonNull(job, "The job is null");
+        Objects.requireNonNull(job.getData(), "The job data is null");
+
+        return job.getData().getEncryptionKey();
+    }
+
     public CompressionType getCompressionType() {
         return compressionType;
     }
@@ -144,4 +154,5 @@ public class CodePipelineStateModel implements Serializable {
             this.compressionType = compressionType;
         }
     }
+
 }

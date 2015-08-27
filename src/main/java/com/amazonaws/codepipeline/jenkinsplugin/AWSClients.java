@@ -14,6 +14,8 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import org.apache.commons.lang.Validate;
+
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
@@ -23,9 +25,9 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
-import org.apache.commons.lang.Validate;
 
 public class AWSClients {
+
     private final AWSCodePipelineClient codePipelineClient;
     private final ClientConfiguration   clientCfg;
     private final Region                region;

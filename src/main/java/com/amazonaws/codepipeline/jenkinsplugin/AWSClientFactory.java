@@ -14,13 +14,17 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
-import org.apache.commons.lang.StringUtils;
-
 import java.io.Serializable;
 
-public class AWSClientFactory implements Serializable{
+import org.apache.commons.lang.StringUtils;
+
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+
+public class AWSClientFactory implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     public AWSClients getAwsClient(final String awsAccessKey,
                                    final String awsSecretKey,
                                    final String proxyHost,
@@ -46,4 +50,5 @@ public class AWSClientFactory implements Serializable{
 
         return aws;
     }
+
 }

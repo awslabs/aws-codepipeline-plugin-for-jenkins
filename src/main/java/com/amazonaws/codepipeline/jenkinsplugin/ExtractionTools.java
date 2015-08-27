@@ -14,14 +14,8 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.services.s3.model.S3Object;
+import static org.apache.commons.io.FileUtils.deleteDirectory;
 import hudson.model.TaskListener;
-import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.ArchiveInputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -29,9 +23,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import static org.apache.commons.io.FileUtils.deleteDirectory;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
+import com.amazonaws.services.s3.model.S3Object;
 
 public final class ExtractionTools {
+
     private ExtractionTools() {}
 
     private static void extractZip(
@@ -167,4 +169,5 @@ public final class ExtractionTools {
                 break;
         }
     }
+
 }
