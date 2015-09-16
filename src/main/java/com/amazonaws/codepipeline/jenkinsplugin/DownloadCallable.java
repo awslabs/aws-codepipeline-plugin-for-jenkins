@@ -162,7 +162,7 @@ public final class DownloadCallable implements FileCallable<Void> {
                 sessionObject,
                 downloadedFileName);
 
-        LoggingHelper.log(listener, "Successfully downloaded the artifacts from CodePipelines");
+        LoggingHelper.log(listener, "Successfully downloaded the artifacts from CodePipeline");
     }
 
     private static void streamReadAndDownloadObject(

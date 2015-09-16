@@ -14,146 +14,326 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.when;
+
+import hudson.model.AbstractBuild;
+
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.zip.CRC32;
+
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.io.FileUtils;
+import org.apache.tools.zip.ZipOutputStream;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
+import org.junit.runners.model.InitializationError;
+import org.junit.runners.model.RunnerBuilder;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 
-import hudson.model.AbstractBuild;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.cleanUpTestingFolders;
-import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.initializeTestingFolders;
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
-
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Paths;
-
-public class ExtractionToolsTest {
+@RunWith(ExtractionToolsTest.class)
+@Suite.SuiteClasses({
+        ExtractionToolsTest.GetCompressionTypeTest.class,
+        ExtractionToolsTest.DecompressFileTest.class
+})
+public class ExtractionToolsTest extends Suite {
 
     private static final String FILE_PATH = Paths.get("A", "File").toString();
 
-    private CodePipelineStateModel model;
-
-    @Mock
-    private S3Object obj;
-    @Mock
-    private AbstractBuild<?, ?> mockBuild;
-    @Mock
-    private ObjectMetadata metadata;
-
-    @Before
-    public void setUp() throws IOException {
-        MockitoAnnotations.initMocks(this);
-        model = new CodePipelineStateModel();
-        model.setCompressionType(CompressionType.None);
-        initializeTestingFolders();
-
-        when(obj.getObjectMetadata()).thenReturn(metadata);
+    public ExtractionToolsTest(final Class<?> klass, final RunnerBuilder builder)
+            throws InitializationError {
+        super(klass, builder);
     }
 
-    @After
-    public void cleanUp() throws IOException {
-        cleanUpTestingFolders();
+    private static class TestBase {
+        public void setUp() throws IOException {
+            MockitoAnnotations.initMocks(this);
+            TestUtils.initializeTestingFolders();
+        }
+
+        public void tearDown() throws IOException {
+            TestUtils.cleanUpTestingFolders();
+        }
     }
 
-    @Test
-    public void getCompressionTypeZipSuccess() {
-        when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.zip").toString());
+    public static class GetCompressionTypeTest extends TestBase {
+        private CodePipelineStateModel model;
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+        @Mock
+        private S3Object obj;
+        @Mock
+        private AbstractBuild<?, ?> mockBuild;
+        @Mock
+        private ObjectMetadata metadata;
 
-        assertEquals(CompressionType.Zip, compressionType);
+        @Before
+        public void setUp() throws IOException {
+            super.setUp();
+
+            model = new CodePipelineStateModel();
+            model.setCompressionType(CompressionType.None);
+
+            when(obj.getObjectMetadata()).thenReturn(metadata);
+        }
+
+        @After
+        public void tearDown() throws IOException {
+            super.tearDown();
+        }
+
+        @Test
+        public void getCompressionTypeZipSuccess() {
+            when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.zip").toString());
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.Zip, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarSuccess() {
+            when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.tar").toString());
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.Tar, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarGzSuccess() {
+            when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.tar.gz").toString());
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.TarGz, compressionType);
+        }
+
+        @Test
+        public void noCompressionTypeFoundNullFailure() {
+            when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.notanextension").toString());
+            when(metadata.getContentType()).thenReturn("notanextension");
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.None, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeZipFromMetadataSuccess() {
+            when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
+            when(metadata.getContentType()).thenReturn("application/zip");
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.Zip, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarFromMetadataSuccess() {
+            when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
+            when(metadata.getContentType()).thenReturn("application/tar");
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.Tar, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarGzFromMetadataSuccess() {
+            when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
+            when(metadata.getContentType()).thenReturn("application/gzip");
+            final CompressionType compressionType = ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.TarGz, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarGzXFromMetadataSuccess() {
+            when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
+            when(metadata.getContentType()).thenReturn("application/x-gzip");
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.TarGz, compressionType);
+        }
+
+        @Test
+        public void getCompressionTypeTarXFromMetadataSuccess() {
+            when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
+            when(metadata.getContentType()).thenReturn("application/x-tar");
+
+            final CompressionType compressionType =
+                    ExtractionTools.getCompressionType(obj, null);
+
+            assertEquals(CompressionType.Tar, compressionType);
+        }
     }
 
-    @Test
-    public void getCompressionTypeTarSuccess() {
-        when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.tar").toString());
+    public static class DecompressFileTest extends TestBase {
+        private static final String ARCHIVE_PREFIX = "decompress-test";
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+        private Path testDir;
+        private Path compressedFile;
+        private Path decompressDestination;
 
-        assertEquals(CompressionType.Tar, compressionType);
-    }
+        @Before
+        public void setUp() throws IOException {
+            super.setUp();
 
-    @Test
-    public void getCompressionTypeTarGzSuccess() {
-        when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.tar.gz").toString());
+            testDir = Paths.get(TestUtils.TEST_DIR);
+            decompressDestination = Files.createTempDirectory(ARCHIVE_PREFIX);
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+            try (final PrintWriter writer = new PrintWriter(
+                        Paths.get(TestUtils.TEST_DIR, "bbb.txt").toFile())) {
+                writer.println("Some test data for the file");
+            }
+        }
 
-        assertEquals(CompressionType.TarGz, compressionType);
-    }
+        @After
+        public void tearDown() throws IOException {
+            super.tearDown();
 
-    @Test
-    public void noCompressionTypeFoundNullFailure() {
-        when(obj.getKey()).thenReturn(Paths.get(FILE_PATH, "Yes.notanextension").toString());
-        when(metadata.getContentType()).thenReturn("notanextension");
+            Files.deleteIfExists(compressedFile);
+            FileUtils.deleteDirectory(decompressDestination.toFile());
+        }
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+        @Test
+        public void canDecompressZipFile() {
+            try {
+                compressedFile = Files.createTempFile(ARCHIVE_PREFIX, ".zip");
+                try (final ZipArchiveOutputStream outputStream = new ZipArchiveOutputStream(
+                            new BufferedOutputStream(new FileOutputStream(compressedFile.toFile())))) {
+                    // Deflated is the default compression method
+                    zipDirectory(testDir, outputStream, ZipOutputStream.DEFLATED);
+                }
 
-        assertEquals(CompressionType.None, compressionType);
-    }
+                ExtractionTools.decompressFile(
+                        compressedFile.toFile(),
+                        decompressDestination.toFile(),
+                        CompressionType.Zip,
+                        null);
 
-    @Test
-    public void getCompressionTypeZipFromMetadataSuccess() {
-        when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
-        when(metadata.getContentType()).thenReturn("application/zip");
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+                assertEquals(getFileNames(testDir), getFileNames(decompressDestination));
+            } catch (final IOException e) {
+                fail(e.getMessage());
+            }
+        }
 
-        assertEquals(CompressionType.Zip, compressionType);
-    }
+        @Test
+        public void canDecompressZipFileWithStoredCompressionMethod() {
+            try {
+                compressedFile = Files.createTempFile(ARCHIVE_PREFIX, ".zip");
+                try (final ZipArchiveOutputStream outputStream = new ZipArchiveOutputStream(
+                            new BufferedOutputStream(new FileOutputStream(compressedFile.toFile())))) {
+                    zipDirectory(testDir, outputStream, ZipOutputStream.STORED);
+                }
 
-    @Test
-    public void getCompressionTypeTarFromMetadataSuccess() {
-        when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
-        when(metadata.getContentType()).thenReturn("application/tar");
+                ExtractionTools.decompressFile(
+                        compressedFile.toFile(),
+                        decompressDestination.toFile(),
+                        CompressionType.Zip,
+                        null);
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+                assertEquals(getFileNames(testDir), getFileNames(decompressDestination));
+            } catch (final IOException e) {
+                fail(e.getMessage());
+            }
+        }
 
-        assertEquals(CompressionType.Tar, compressionType);
-    }
+        // e.g.: zip -r --exclude *.git* - . | aws s3 cp - s3://code-pipeline/aws-codedeploy-demo.zip
+        @Test
+        public void canDecompressZipFileCreatedFromCommandLine() {
+            try {
+                compressedFile = Paths.get(getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile());
 
-    @Test
-    public void getCompressionTypeTarGzFromMetadataSuccess() {
-        when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
-        when(metadata.getContentType()).thenReturn("application/gzip");
-        final CompressionType compressionType = ExtractionTools.getCompressionType(obj, null);
+                ExtractionTools.decompressFile(
+                        compressedFile.toFile(),
+                        decompressDestination.toFile(),
+                        CompressionType.Zip,
+                        null);
 
-        assertEquals(CompressionType.TarGz, compressionType);
-    }
+                final Set<String> files = new HashSet<>(Arrays.asList(".DS_Store", "appspec.yml",
+                            "aws-codepipeline-jenkins-aws-codedeploy_linux.zip", "Gemfile", "LICENSE",
+                            "Rakefile", "README.md", "install_dependencies", "start_server", "stop_server",
+                            "index.html.haml", "jenkins_sample_test.rb"));
 
-    @Test
-    public void getCompressionTypeTarGzXFromMetadataSuccess() {
-        when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
-        when(metadata.getContentType()).thenReturn("application/x-gzip");
+                assertEquals(files, getFileNames(decompressDestination));
+            } catch (final IOException e) {
+                fail(e.getMessage());
+            }
+        }
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+        @SuppressWarnings("unchecked")
+        private static Set<String> getFileNames(final Path dir) {
+            final Collection<File> files = FileUtils.listFiles(dir.toFile(), null, true);
+            final Set<String> fileNames = new HashSet<>();
+            for (final File file : files) {
+                fileNames.add(file.getName());
+            }
+            return fileNames;
+        }
 
-        assertEquals(CompressionType.TarGz, compressionType);
-    }
+        private static void zipDirectory(
+                final Path directory,
+                final ZipArchiveOutputStream out,
+                final int compressionMethod) throws IOException {
 
-    @Test
-    public void getCompressionTypeTarXFromMetadataSuccess() {
-        when(obj.getKey()).thenReturn("A" + File.separator + "File" + File.separator + "XK321K");
-        when(metadata.getContentType()).thenReturn("application/x-tar");
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                    final String entryName = directory.relativize(file).toString();
+                    final ZipArchiveEntry archiveEntry = new ZipArchiveEntry(file.toFile(), entryName);
+                    final byte[] contents = Files.readAllBytes(file);
 
-        final CompressionType compressionType =
-                ExtractionTools.getCompressionType(obj, null);
+                    out.setMethod(compressionMethod);
+                    archiveEntry.setMethod(compressionMethod);
 
-        assertEquals(CompressionType.Tar, compressionType);
+                    if (compressionMethod == ZipOutputStream.STORED) {
+                        archiveEntry.setSize(contents.length);
+
+                        final CRC32 crc32 = new CRC32();
+                        crc32.update(contents);
+                        archiveEntry.setCrc(crc32.getValue());
+                    }
+
+                    out.putArchiveEntry(archiveEntry);
+                    out.write(contents);
+                    out.closeArchiveEntry();
+
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
     }
 
 }

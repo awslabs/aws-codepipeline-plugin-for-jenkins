@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>codepipeline</artifactId>
-  <version>0.6</version>
+  <version>0.7</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin for Jenkins</name>

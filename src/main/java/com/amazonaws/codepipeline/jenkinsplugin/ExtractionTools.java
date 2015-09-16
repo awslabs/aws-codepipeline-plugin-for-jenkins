@@ -21,13 +21,18 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Enumeration;
 
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.apache.commons.compress.utils.IOUtils;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.s3.model.S3Object;
@@ -40,9 +45,8 @@ public final class ExtractionTools {
             final File source,
             final File destination)
             throws IOException {
-        try (final ArchiveInputStream zipArchiveInputStream
-                     = new ZipArchiveInputStream(new FileInputStream(source))) {
-            extractArchive(destination, zipArchiveInputStream);
+        try (final ZipFile zipFile = new ZipFile(source, StandardCharsets.UTF_8.name(), true)) {
+            extractZipFile(destination, zipFile);
         }
     }
 
@@ -50,8 +54,8 @@ public final class ExtractionTools {
             final File source,
             final File destination)
             throws IOException {
-        try (final ArchiveInputStream tarArchiveInputStream
-                     = new TarArchiveInputStream(new FileInputStream(source))) {
+        try (final ArchiveInputStream tarArchiveInputStream = new TarArchiveInputStream(
+                    new FileInputStream(source))) {
             extractArchive(destination, tarArchiveInputStream);
         }
     }
@@ -60,28 +64,47 @@ public final class ExtractionTools {
             final File source,
             final File destination)
             throws IOException {
-        try (final ArchiveInputStream tarGzArchiveInputStream
-                     = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(source)))) {
+        try (final ArchiveInputStream tarGzArchiveInputStream = new TarArchiveInputStream(
+                    new GzipCompressorInputStream(new FileInputStream(source)))) {
             extractArchive(destination, tarGzArchiveInputStream);
         }
     }
 
-    private static void extractArchive(
-            final File destination,
-            final ArchiveInputStream archiveInputStream)
+    // Use of ZipFile is recommended, ZipArchiveInputStream has many limitations
+    // https://commons.apache.org/proper/commons-compress/zip.html
+    private static void extractZipFile(final File destination, final ZipFile zipFile) throws IOException {
+        final Enumeration<ZipArchiveEntry> entries = zipFile.getEntries();
+
+        while (entries.hasMoreElements()) {
+            final ZipArchiveEntry entry = entries.nextElement();
+            final File entryDestination = new File(destination, entry.getName());
+
+            if (entry.isDirectory()) {
+                entryDestination.mkdirs();
+            } else {
+                entryDestination.getParentFile().mkdirs();
+                final InputStream in = zipFile.getInputStream(entry);
+                try (final OutputStream out = new FileOutputStream(entryDestination)) {
+                    IOUtils.copy(in, out);
+                    IOUtils.closeQuietly(in);
+                }
+            }
+        }
+    }
+
+    private static void extractArchive(final File destination, final ArchiveInputStream archiveInputStream)
             throws IOException {
         final int BUFFER_SIZE = 8192;
         ArchiveEntry entry = archiveInputStream.getNextEntry();
 
         while (entry != null) {
             final File destinationFile = new File(destination, entry.getName());
-            final File destinationParent  = destinationFile.getParentFile();
-            destinationParent.mkdirs();
 
             if (entry.isDirectory()) {
                 destinationFile.mkdir();
             }
             else {
+                destinationFile.getParentFile().mkdirs();
                 try (final OutputStream fileOutputStream = new FileOutputStream(destinationFile)) {
                     final byte[] buffer = new byte[BUFFER_SIZE];
                     int bytesRead;
@@ -148,24 +171,24 @@ public final class ExtractionTools {
     }
 
     public static void decompressFile(
-            final File downloadedFile,
-            final File workspace,
+            final File compressedFile,
+            final File destination,
             final CompressionType compressionType,
             final TaskListener listener) throws IOException {
         LoggingHelper.log(listener, "Extracting '%s' to '%s'",
-                downloadedFile.getAbsolutePath(), workspace.getAbsolutePath());
+                compressedFile.getAbsolutePath(), destination.getAbsolutePath());
 
         switch (compressionType) {
             case None:
                 // Attempt to decompress with Zip if it is unknown
             case Zip:
-                extractZip(downloadedFile, workspace);
+                extractZip(compressedFile, destination);
                 break;
             case Tar:
-                extractTar(downloadedFile, workspace);
+                extractTar(compressedFile, destination);
                 break;
             case TarGz:
-                extractTarGz(downloadedFile, workspace);
+                extractTarGz(compressedFile, destination);
                 break;
         }
     }

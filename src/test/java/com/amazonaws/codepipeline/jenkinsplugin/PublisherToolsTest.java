@@ -131,7 +131,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 CompressionType.Zip,
                 null);
@@ -173,7 +173,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 CompressionType.Zip,
                 null);
@@ -210,7 +210,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 CompressionType.Zip,
                 null);

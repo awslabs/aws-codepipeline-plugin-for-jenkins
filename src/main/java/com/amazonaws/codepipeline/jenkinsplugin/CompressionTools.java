@@ -58,7 +58,7 @@ public final class CompressionTools {
 
         switch (compressionType) {
             case None:
-                // Zip it up if we don't know since zip is the default format for AWS CodePipelines
+                // Zip it up if we don't know since zip is the default format for AWS CodePipeline
             case Zip:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".zip");
                 compressZipFile(compressedArtifacts, workspace, directoryToZip, listener);

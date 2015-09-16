@@ -14,7 +14,6 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import static org.apache.commons.io.FileUtils.deleteDirectory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -22,8 +21,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import org.apache.commons.io.FileUtils;
 
 public class TestUtils {
+
+    public static final String TEST_DIR = "TestDir";
 
     public static void assertContainsIgnoreCase(final String strToMatch, final String strToCheck) {
         final String strToMatchLower = strToMatch.toLowerCase();
@@ -44,35 +49,20 @@ public class TestUtils {
     }
 
     public static void initializeTestingFolders() throws IOException {
-        System.out.println("Initializing Folders");
-        File file = new File("TestDir");
-        file.mkdirs();
-        System.out.println(file.getAbsolutePath());
-        file = new File("TestDir/Dir1");
-        file.mkdirs();
-        file = new File("TestDir/Dir2");
-        file.mkdirs();
-        file = new File("TestDir/Dir1/SubDir1");
-        file.mkdirs();
-        file = new File("TestDir/Dir1/SubDir2");
-        file.mkdirs();
-        file = new File("TestDir/Dir1/out.txt");
-        file.createNewFile();
-        file = new File("TestDir/bbb.txt");
-        file.createNewFile();
-        file = new File("TestDir/Dir1/SubDir1/aaa.txt");
-        file.createNewFile();
-        file = new File("TestDir/Dir2/333.txt");
-        file.createNewFile();
-        file = new File("TestDir/Dir1/SubDir2/SubDir3");
-        file.mkdirs();
-        file = new File("TestDir/Dir1/SubDir2/SubDir3/onemoretime.txt");
-        file.createNewFile();
+        Files.createDirectories(Paths.get(TEST_DIR, "Dir1", "SubDir1"));
+        Files.createDirectories(Paths.get(TEST_DIR, "Dir1", "SubDir2", "SubDir3"));
+        Files.createDirectories(Paths.get(TEST_DIR, "Dir2"));
+
+        Files.createFile(Paths.get(TEST_DIR, "bbb.txt"));
+        Files.createFile(Paths.get(TEST_DIR, "Dir1", "out.txt"));
+        Files.createFile(Paths.get(TEST_DIR, "Dir1", "SubDir1", "aaa.txt"));
+        Files.createFile(Paths.get(TEST_DIR, "Dir1", "SubDir2", "SubDir3", "onemoretime.txt"));
+        Files.createFile(Paths.get(TEST_DIR, "Dir2", "333.txt"));
     }
 
     public static void cleanUpTestingFolders() throws IOException {
-        final File file = new File("TestDir");
-        deleteDirectory(file);
+        final File file = new File(TEST_DIR);
+        FileUtils.deleteDirectory(file);
     }
 
 }

@@ -62,7 +62,7 @@ public class CompressionToolsTest {
         model.setCompressionType(CodePipelineStateModel.CompressionType.Zip);
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
@@ -78,7 +78,7 @@ public class CompressionToolsTest {
         model.setCompressionType(CodePipelineStateModel.CompressionType.Tar);
         final File compressedFile = CompressionTools.compressFile(
                 "TarProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
@@ -94,7 +94,7 @@ public class CompressionToolsTest {
         model.setCompressionType(CodePipelineStateModel.CompressionType.TarGz);
         final File compressedFile = CompressionTools.compressFile(
                 "TarGzProject",
-                new File("TestDir"),
+                new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
@@ -106,7 +106,7 @@ public class CompressionToolsTest {
 
     @Test
     public void addFoldersToListSuccess() throws IOException {
-        final Path file = Paths.get("TestDir");
+        final Path file = Paths.get(TestUtils.TEST_DIR);
         final List<File> files = CompressionTools.addFilesToCompress(file);
 
         assertEquals(files.size(), 5);
