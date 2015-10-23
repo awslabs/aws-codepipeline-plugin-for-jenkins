@@ -41,8 +41,8 @@ public class Validation {
     // The Validations here are CodePipeline specific
     public static void validateProjectName(
             final String projectName,
-            final TaskListener listener)
-            throws IllegalArgumentException {
+            final TaskListener listener) throws IllegalArgumentException {
+
         if (projectName.length() > MAX_PROJECT_NAME_LENGTH) {
             final String error = "Project Name is too long, AWSCodePipeline Project Names must be less than "
                     + MAX_PROJECT_NAME_LENGTH + " characters, you entered " + projectName.length() + " characters";
@@ -62,8 +62,8 @@ public class Validation {
 
     public static void numberOfOutPutsIsValid(final List<?> artifacts){
         if (artifacts.size() > MAX_ARTIFACTS) {
-            throw new IllegalArgumentException("The maximum number of output artifacts allowed is: " + MAX_ARTIFACTS
-            + " You provided: " + artifacts.size());
+            throw new IllegalArgumentException("The maximum number of output artifacts allowed is: "
+                    + MAX_ARTIFACTS + " You provided: " + artifacts.size());
         }
     }
 
@@ -118,15 +118,14 @@ public class Validation {
     }
 
     private static boolean credentialsAreValid(final String awsAccessKey, final String awsSecretKey) {
-        return awsAccessKey != null &&
-                awsSecretKey != null &&
-               ((awsAccessKey.isEmpty() && awsSecretKey.isEmpty()) ||
-                    (!awsAccessKey.isEmpty() && !awsSecretKey.isEmpty()));
+        return awsAccessKey != null
+                && awsSecretKey != null
+                && ((awsAccessKey.isEmpty() && awsSecretKey.isEmpty())
+                        || (!awsAccessKey.isEmpty() && !awsSecretKey.isEmpty()));
     }
 
     private static boolean regionIsValid(final String region) {
-        return region != null
-                && !region.isEmpty();
+        return region != null && !region.isEmpty();
     }
 
     private static boolean actionTypeIsValid(
@@ -139,13 +138,15 @@ public class Validation {
                         actionTypeProvider != null && !actionTypeProvider.isEmpty() &&
                         actionTypeVersion != null && !actionTypeVersion.isEmpty();
 
-        return actionTypeNotEmpty &&
-                actionTypeProvider.length() <= MAX_PROVIDER_LENGTH &&
-                actionTypeVersion.length() <= MAX_VERSION_LENGTH;
+        return actionTypeNotEmpty
+                && actionTypeProvider.length() <= MAX_PROVIDER_LENGTH
+                && actionTypeVersion.length() <= MAX_VERSION_LENGTH;
     }
 
     private static boolean projectNameIsValid(final String projectName) {
-        return projectName != null && !projectName.isEmpty() && projectName.length() <= MAX_PROJECT_NAME_LENGTH;
-    }
+        return projectName != null
+                && !projectName.isEmpty()
+                && projectName.length() <= MAX_PROJECT_NAME_LENGTH;
+        }
 
 }

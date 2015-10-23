@@ -17,7 +17,6 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 import java.io.Serializable;
 import java.util.Objects;
 
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.codepipeline.model.EncryptionKey;
 import com.amazonaws.services.codepipeline.model.Job;
 
@@ -57,10 +56,6 @@ public class CodePipelineStateModel implements Serializable {
         }
     }
 
-    public static final Regions[] AVAILABLE_REGIONS = { Regions.US_EAST_1 };
-    public static final CategoryType[] ACTION_TYPE =
-            { CategoryType.PleaseChooseACategory, CategoryType.Build, CategoryType.Test };
-
     private CategoryType actionTypeCategory;
     private CompressionType compressionType;
     private Job job;
@@ -71,8 +66,8 @@ public class CodePipelineStateModel implements Serializable {
     private String region;
 
     public CodePipelineStateModel() {
-        compressionType      = CompressionType.None;
-        actionTypeCategory   = CategoryType.PleaseChooseACategory;
+        compressionType    = CompressionType.None;
+        actionTypeCategory = CategoryType.PleaseChooseACategory;
     }
 
     public int getProxyPort() {

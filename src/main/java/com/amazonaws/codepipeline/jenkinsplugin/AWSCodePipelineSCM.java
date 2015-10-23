@@ -35,10 +35,10 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.sf.json.JSONObject;
-
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import net.sf.json.JSONObject;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
@@ -54,6 +54,17 @@ import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
 import com.amazonaws.services.codepipeline.model.PollForJobsResult;
 
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
+
+    public static final Regions[] AVAILABLE_REGIONS = {
+        Regions.US_EAST_1,
+        Regions.US_WEST_2
+    };
+
+    public static final CategoryType[] ACTION_TYPE = {
+        CategoryType.PleaseChooseACategory,
+        CategoryType.Build,
+        CategoryType.Test
+    };
 
     private Job job;
     private final boolean clearWorkspace;
@@ -216,8 +227,6 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return PollingResult.NO_CHANGES;
     }
 
-
-
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl)super.getDescriptor();
@@ -333,7 +342,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         public ListBoxModel doFillRegionItems() {
             final ListBoxModel items = new ListBoxModel();
 
-            for (final Regions region : CodePipelineStateModel.AVAILABLE_REGIONS) {
+            for (final Regions region : AVAILABLE_REGIONS) {
                 items.add(region.toString(), region.getName());
             }
 
@@ -343,14 +352,14 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         public ListBoxModel doFillCategoryItems() {
             final ListBoxModel items = new ListBoxModel();
 
-            for (final CategoryType action : CodePipelineStateModel.ACTION_TYPE) {
+            for (final CategoryType action : ACTION_TYPE) {
                 items.add(action.toString(), action.name());
             }
 
             return items;
         }
 
-        public FormValidation doCategoryCheck(@QueryParameter final String value) {
+        public FormValidation doCheckCategory(@QueryParameter final String value) {
             if (value == null ||
                     value.equalsIgnoreCase("Please Choose A Category") ||
                     value.equalsIgnoreCase("PleaseChooseACategory")) {
@@ -360,7 +369,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             return FormValidation.ok();
         }
 
-        public FormValidation doVersionCheck(@QueryParameter final String value) {
+        public FormValidation doCheckVersion(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.error("Please enter a Version");
             }
@@ -376,7 +385,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                     "Version must be greater than or equal to 0");
         }
 
-        public FormValidation doProviderCheck(@QueryParameter final String value) {
+        public FormValidation doCheckProvider(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.error("Please enter a Provider, typically \"Jenkins\" or your Project Name");
             }
@@ -392,7 +401,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             return FormValidation.ok();
         }
 
-        public FormValidation doProxyPortCheck(@QueryParameter final String value) {
+        public FormValidation doCheckProxyPort(@QueryParameter final String value) {
             if (value == null || value.isEmpty()) {
                 return FormValidation.ok();
             }

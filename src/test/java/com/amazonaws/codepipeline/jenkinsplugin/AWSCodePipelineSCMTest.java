@@ -165,14 +165,13 @@ public class AWSCodePipelineSCMTest {
     @Test
     public void categoryCheckShouldSucceedBuild() {
          final CategoryType category = CategoryType.Build;
-        assertEquals(FormValidation.ok(), impl.doCategoryCheck(category.name()));
+        assertEquals(FormValidation.ok(), impl.doCheckCategory(category.name()));
     }
 
     @Test
     public void categoryCheckShouldSucceedTest() {
         final CategoryType category = CategoryType.Test;
-        assertEquals(FormValidation.ok(), impl.doCategoryCheck(category.name()));
-
+        assertEquals(FormValidation.ok(), impl.doCheckCategory(category.name()));
     }
 
     @Test
@@ -180,20 +179,20 @@ public class AWSCodePipelineSCMTest {
         final CategoryType category = CategoryType.PleaseChooseACategory;
         assertContainsIgnoreCase(
                 "Please select a Category Type",
-                impl.doCategoryCheck(category.name()).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doCategoryCheck(category.name()));
+                impl.doCheckCategory(category.name()).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckCategory(category.name()));
     }
 
     @Test
     public void versionCheckShouldSucceedSimpleVersionNumber() {
         final String version = RandomStringUtils.randomNumeric(1);
-        assertEquals(FormValidation.ok(), impl.doVersionCheck(version));
+        assertEquals(FormValidation.ok(), impl.doCheckVersion(version));
     }
 
     @Test
     public void versionCheckShouldSucceedWithMaxNumber() {
         final String version = RandomStringUtils.randomNumeric(Validation.MAX_VERSION_LENGTH);
-        assertEquals(FormValidation.ok(), impl.doVersionCheck(version));
+        assertEquals(FormValidation.ok(), impl.doCheckVersion(version));
     }
 
     @Test
@@ -201,8 +200,8 @@ public class AWSCodePipelineSCMTest {
         final String version = "";
         assertContainsIgnoreCase(
                 "Please enter a Version",
-                impl.doVersionCheck(version).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doVersionCheck(version));
+                impl.doCheckVersion(version).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckVersion(version));
     }
 
     @Test
@@ -210,8 +209,8 @@ public class AWSCodePipelineSCMTest {
         final String version = "-1";
         assertContainsIgnoreCase(
                 "Version must be greater than or equal to 0",
-                impl.doVersionCheck(version).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doVersionCheck(version));
+                impl.doCheckVersion(version).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckVersion(version));
     }
 
     @Test
@@ -219,8 +218,8 @@ public class AWSCodePipelineSCMTest {
         final String version = RandomStringUtils.randomAlphabetic(5);
         assertContainsIgnoreCase(
                 "Version must be a number",
-                impl.doVersionCheck(version).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doVersionCheck(version));
+                impl.doCheckVersion(version).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckVersion(version));
     }
 
     @Test
@@ -231,14 +230,14 @@ public class AWSCodePipelineSCMTest {
                 "Version can only be " + Validation.MAX_VERSION_LENGTH +
                         " characters in length, you entered " +
                         version.length(),
-                impl.doVersionCheck(version).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doVersionCheck(version));
+                impl.doCheckVersion(version).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckVersion(version));
     }
 
     @Test
     public void providerCheckSucceeds() {
         final String provider = "Jenkins";
-        assertEquals(FormValidation.ok(), impl.doProviderCheck(provider));
+        assertEquals(FormValidation.ok(), impl.doCheckProvider(provider));
     }
 
     @Test
@@ -246,9 +245,9 @@ public class AWSCodePipelineSCMTest {
         final String provider = "";
         assertContainsIgnoreCase(
                 "Please enter a Provider, typically &quot;Jenkins&quot; or your Project Name",
-                impl.doProviderCheck(provider).toString());
+                impl.doCheckProvider(provider).toString());
 
-        assertValidationMessage(FormValidation.error(""), impl.doProviderCheck(provider));
+        assertValidationMessage(FormValidation.error(""), impl.doCheckProvider(provider));
     }
 
     @Test
@@ -261,14 +260,14 @@ public class AWSCodePipelineSCMTest {
 
         assertContainsIgnoreCase(
                 "The Provider name is too long, the name should be ",
-                impl.doProviderCheck(provider).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doProviderCheck(provider));
+                impl.doCheckProvider(provider).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckProvider(provider));
     }
 
     @Test
     public void proxyPortIsNumberSuccess() {
         final String proxyPort = "0";
-        assertEquals(FormValidation.ok(), impl.doProxyPortCheck(proxyPort));
+        assertEquals(FormValidation.ok(), impl.doCheckProxyPort(proxyPort));
     }
 
     @Test
@@ -276,8 +275,8 @@ public class AWSCodePipelineSCMTest {
         final String proxyPort = "-1";
         assertContainsIgnoreCase(
                 "Proxy Port must be between 0 and 65535",
-                impl.doProxyPortCheck(proxyPort).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doProxyPortCheck(proxyPort));
+                impl.doCheckProxyPort(proxyPort).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckProxyPort(proxyPort));
     }
 
     @Test
@@ -285,8 +284,8 @@ public class AWSCodePipelineSCMTest {
         final String proxyPort = "65536";
         assertContainsIgnoreCase(
                 "Proxy Port must be between 0 and 65535",
-                impl.doProxyPortCheck(proxyPort).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doProxyPortCheck(proxyPort));
+                impl.doCheckProxyPort(proxyPort).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckProxyPort(proxyPort));
     }
 
     @Test
@@ -294,8 +293,8 @@ public class AWSCodePipelineSCMTest {
         final String proxyPort = RandomStringUtils.randomAlphabetic(4);
         assertContainsIgnoreCase(
                 "Proxy Port must be a number",
-                impl.doProxyPortCheck(proxyPort).toString());
-        assertValidationMessage(FormValidation.error(""), impl.doProxyPortCheck(proxyPort));
+                impl.doCheckProxyPort(proxyPort).toString());
+        assertValidationMessage(FormValidation.error(""), impl.doCheckProxyPort(proxyPort));
     }
 
     // -----Setup and Util Methods----- //
