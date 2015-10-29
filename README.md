@@ -7,10 +7,6 @@ CodePipeline.
 
 ## Setting up
 
-To download `aws-codepipeline-plugin-for-jenkins.hpi` from GitHub, make sure
-to use the [raw
-link](https://github.com/awslabs/aws-codepipeline-plugin-for-jenkins/blob/master/dist/aws-codepipeline-plugin-for-jenkins.hpi?raw=true).
-
 After installing the plugin, some simple configuration is needed for your
 project:
 

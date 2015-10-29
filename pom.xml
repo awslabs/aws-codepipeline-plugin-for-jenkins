@@ -6,22 +6,24 @@
     <version>1.479</version>
   </parent>
 
-  <artifactId>codepipeline</artifactId>
-  <version>0.8</version>
+  <artifactId>aws-codepipeline</artifactId>
+  <version>0.9</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin for Jenkins</name>
-  <description>Integrates Jenkins with AWS CodePipeline to process build jobs.
+  <description>
+    Integrates Jenkins with AWS CodePipeline to process build jobs.
     The SCM plugin uses the AWS CodePipeline PollForJobs API to detect new changes
     and the post-build event uploads the build artifacts and calls
-    PutJobSuccessResult/PutJobFailureResult to report back the build status.</description>
-  <url>https://aws.amazon.com/codepipeline/</url>
+    PutJobSuccessResult/PutJobFailureResult to report back the build status.
+  </description>
+  <url>https://wiki.jenkins-ci.org/display/JENKINS/CodePipeline+Plugin</url>
 
   <developers>
     <developer>
-      <id>funkc</id>
-      <name>Christopher Funk</name>
-      <email>funkc@amazon.com</email>
+      <id>biagic</id>
+      <name>Eduardo Lopez Biagi</name>
+      <email>codepipeline-dev+jenkinsci@amazon.com</email>
     </developer>
   </developers>
 
