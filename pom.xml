@@ -36,9 +36,9 @@
   </licenses>
 
   <scm>
-    <url>https://github.com/awslabs/aws-codepipeline-plugin-for-jenkins</url>
-    <connection>scm:git:git://github.com/awslabs/aws-codepipeline-plugin-for-jenkins.git</connection>
-    <developerConnection>scm:git:git@github.com:awslabs/aws-codepipeline-plugin-for-jenkins.git</developerConnection>
+    <url>https://github.com/jenkinsci/aws-codepipeline-plugin</url>
+    <connection>scm:git:ssh://github.com/jenkinsci/aws-codepipeline-plugin.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/jenkinsci/aws-codepipeline-plugin.git</developerConnection>
   </scm>
 
   <repositories>
