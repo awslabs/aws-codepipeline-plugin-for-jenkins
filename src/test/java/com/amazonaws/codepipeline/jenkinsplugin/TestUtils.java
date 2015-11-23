@@ -29,6 +29,7 @@ import org.apache.commons.io.FileUtils;
 public class TestUtils {
 
     public static final String TEST_DIR = "TestDir";
+    private static final String EXTRA_TEST_DIR = "ExtraTestDir";
 
     public static void assertContainsIgnoreCase(final String strToMatch, final String strToCheck) {
         final String strToMatchLower = strToMatch.toLowerCase();
@@ -49,6 +50,7 @@ public class TestUtils {
     }
 
     public static void initializeTestingFolders() throws IOException {
+        // TEST_DIR
         Files.createDirectories(Paths.get(TEST_DIR, "Dir1", "SubDir1"));
         Files.createDirectories(Paths.get(TEST_DIR, "Dir1", "SubDir2", "SubDir3"));
         Files.createDirectories(Paths.get(TEST_DIR, "Dir2"));
@@ -58,11 +60,31 @@ public class TestUtils {
         Files.createFile(Paths.get(TEST_DIR, "Dir1", "SubDir1", "aaa.txt"));
         Files.createFile(Paths.get(TEST_DIR, "Dir1", "SubDir2", "SubDir3", "onemoretime.txt"));
         Files.createFile(Paths.get(TEST_DIR, "Dir2", "333.txt"));
+
+        // EXTRA_TEST_DIR
+        Files.createDirectories(Paths.get(EXTRA_TEST_DIR, "of"));
+
+        Files.createFile(Paths.get(EXTRA_TEST_DIR, "life.txt"));
+        Files.createFile(Paths.get(EXTRA_TEST_DIR, "of", "brian.py"));
+    }
+
+    public static void addSymlinkToFolderInsideWorkspace() throws IOException {
+        Files.createSymbolicLink(Paths.get(TEST_DIR, "SymlinkDir"), Paths.get("Dir1"));
+    }
+
+    public static void addSymlinkToFileInsideWorkspace() throws IOException {
+        Files.createSymbolicLink(Paths.get(TEST_DIR, "SymlinkFile"), Paths.get("Dir1", "out.txt"));
+    }
+
+    public static void addSymlinkToFolderOutsideWorkspace() throws IOException {
+        Files.createSymbolicLink(Paths.get(TEST_DIR, "SymlinkDir"), Paths.get("..", EXTRA_TEST_DIR));
     }
 
     public static void cleanUpTestingFolders() throws IOException {
-        final File file = new File(TEST_DIR);
-        FileUtils.deleteDirectory(file);
+        for (final String testDir : new String[] { TEST_DIR, EXTRA_TEST_DIR }) {
+            final File file = new File(testDir);
+            FileUtils.deleteDirectory(file);
+        }
     }
 
 }

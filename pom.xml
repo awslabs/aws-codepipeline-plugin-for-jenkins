@@ -10,7 +10,7 @@
   <version>0.11-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
-  <name>AWS CodePipeline Plugin for Jenkins</name>
+  <name>AWS CodePipeline Plugin</name>
   <description>
     Integrates Jenkins with AWS CodePipeline to process build jobs.
     The SCM plugin uses the AWS CodePipeline PollForJobs API to detect new changes

@@ -17,6 +17,7 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
+
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 
@@ -35,7 +36,7 @@ import org.mockito.MockitoAnnotations;
 public class CompressionToolsTest {
 
     private CodePipelineStateModel model;
-    private String projectName = "";
+    private String projectName;
 
     @Mock
     private AbstractBuild mockBuild;
@@ -44,11 +45,13 @@ public class CompressionToolsTest {
 
     @Before
     public void setUp() throws IOException {
-        model = new CodePipelineStateModel();
         MockitoAnnotations.initMocks(this);
+
+        TestUtils.initializeTestingFolders();
+        model = new CodePipelineStateModel();
+
         when(mockBuild.getProject()).thenReturn(abstractProject);
         when(abstractProject.getName()).thenReturn(projectName);
-        TestUtils.initializeTestingFolders();
     }
 
     @After
@@ -57,59 +60,92 @@ public class CompressionToolsTest {
     }
 
     @Test
-    public void zipCompressionWithTypeSuccess() throws IOException {
+    public void succeedsWithZipCompressionType() throws IOException {
         projectName = "ZipProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.Zip);
+
         final File compressedFile = CompressionTools.compressFile(
-                "ZipProject",
+                projectName,
                 new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
 
         assertTrue(compressedFile.length() > 0);
-        assertTrue(compressedFile.getName().contains("ZipProject"));
+        assertTrue(compressedFile.getName().contains(projectName));
         assertTrue(compressedFile.getName().contains(".zip"));
     }
 
     @Test
-    public void tarCompressionWithTypeSuccess() throws IOException {
+    public void succeedsWithTarCompressionType() throws IOException {
         projectName = "TarProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.Tar);
+
         final File compressedFile = CompressionTools.compressFile(
-                "TarProject",
+                projectName,
                 new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
 
         assertTrue(compressedFile.length() > 0);
-        assertTrue(compressedFile.getName().contains("TarProject"));
+        assertTrue(compressedFile.getName().contains(projectName));
         assertTrue(compressedFile.getName().contains(".tar"));
     }
 
     @Test
-    public void tarGzCompressionWithTypeSuccess() throws IOException {
+    public void succeedsWithTarGzCompressionType() throws IOException {
         projectName = "TarGzProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.TarGz);
+
         final File compressedFile = CompressionTools.compressFile(
-                "TarGzProject",
+                projectName,
                 new File(TestUtils.TEST_DIR),
                 "",
                 model.getCompressionType(),
                 null);
 
         assertTrue(compressedFile.length() > 0);
-        assertTrue(compressedFile.getName().contains("TarGzProject"));
+        assertTrue(compressedFile.getName().contains(projectName));
         assertTrue(compressedFile.getName().contains(".tar.gz"));
     }
 
     @Test
-    public void addFoldersToListSuccess() throws IOException {
+    public void returnsAllFilesInDirectory() throws IOException {
         final Path file = Paths.get(TestUtils.TEST_DIR);
-        final List<File> files = CompressionTools.addFilesToCompress(file);
 
-        assertEquals(files.size(), 5);
+        final List<File> files = CompressionTools.addFilesToCompress(file);
+        assertEquals(5, files.size());
+    }
+
+    @Test
+    public void followsSymlinks() throws IOException {
+        final Path file = Paths.get(TestUtils.TEST_DIR);
+        TestUtils.addSymlinkToFolderInsideWorkspace();
+
+        final List<File> files = CompressionTools.addFilesToCompress(file);
+        // Symlink to folder with 3 files
+        assertEquals(8, files.size());
+    }
+
+    @Test
+    public void followsSymlinksToFiles() throws IOException {
+        final Path file = Paths.get(TestUtils.TEST_DIR);
+        TestUtils.addSymlinkToFileInsideWorkspace();
+
+        final List<File> files = CompressionTools.addFilesToCompress(file);
+        // Symlink to a file
+        assertEquals(6, files.size());
+    }
+
+    @Test
+    public void followsSymlinksOutsideTheWorkspace() throws IOException {
+        final Path file = Paths.get(TestUtils.TEST_DIR);
+        TestUtils.addSymlinkToFolderOutsideWorkspace();
+
+        final List<File> files = CompressionTools.addFilesToCompress(file);
+        // Symlink to folder outside workspace with 2 files
+        assertEquals(7, files.size());
     }
 
 }
