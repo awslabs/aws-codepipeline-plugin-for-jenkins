@@ -46,28 +46,32 @@ import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.Compressi
  */
 public class AWSCodePipelinePublisher extends Notifier {
 
-    private final List<OutputTuple> buildOutputs;
+    @Deprecated // renamed to outputArtifacts
+    private final transient List<OutputTuple> buildOutputs;
+    private List<OutputArtifact> outputArtifacts;
+
     private AWSClientFactory awsClientFactory;
 
     @DataBoundConstructor
     public AWSCodePipelinePublisher(final JSONArray outputLocations) {
         buildOutputs = new ArrayList<>();
+        outputArtifacts = new ArrayList<>();
 
         if (outputLocations != null) {
             for (final Object aJsonBuildArray : outputLocations) {
+                // See AWSCodePipelinePublisher/config.jelly
                 final JSONObject child = (JSONObject) aJsonBuildArray;
-                final String output = (String) child.get("output");
+                final String location = (String) child.get("location");
 
-                if (output != null) {
-                    this.buildOutputs.add(new OutputTuple(Validation.sanitize(output.trim())));
+                if (location != null) {
+                    this.outputArtifacts.add(new OutputArtifact(Validation.sanitize(location.trim())));
                 }
             }
         }
 
         awsClientFactory = new AWSClientFactory();
-        Validation.numberOfOutPutsIsValid(buildOutputs);
+        Validation.numberOfOutPutsIsValid(outputArtifacts);
     }
-
 
     public AWSCodePipelinePublisher(final JSONArray outputLocations, final AWSClientFactory awsClientFactory) {
         this(outputLocations);
@@ -116,16 +120,21 @@ public class AWSCodePipelinePublisher extends Notifier {
         try {
             LoggingHelper.log(listener, "Publishing artifacts");
 
-            if (model.getJob().getData().getOutputArtifacts().size() != buildOutputs.size()) {
+            if (model.getJob().getData().getOutputArtifacts().size() != outputArtifacts.size()) {
                 throw new IllegalArgumentException(String.format(
-                            "Error: number of output locations and number of CodePipeline outputs are "
-                            + "different. Number of outputs: %d, Number of pipeline artifacts: %d. "
-                            + "The number of build artifacts should match the number of output artifacts specified",
-                            buildOutputs.size(),
-                            model.getJob().getData().getOutputArtifacts().size()));
+                            "Error: the number of output artifacts in the Jenkins project and in the AWS "
+                            + "CodePipeline pipeline action do not match.  Please configure the output locations "
+                            + "of your Jenkins project to match the AWS CodePipeline pipeline action's output artifacts. "
+                            + "Number of output locations in Jenkins project: %d, number of output artifacts "
+                            + "in AWS CodePipeline pipeline action: %d [Pipeline: %s, stage: %s, action: %s].",
+                            outputArtifacts.size(),
+                            model.getJob().getData().getOutputArtifacts().size(),
+                            model.getJob().getData().getPipelineContext().getPipelineName(),
+                            model.getJob().getData().getPipelineContext().getStage().getName(),
+                            model.getJob().getData().getPipelineContext().getAction().getName()));
             }
 
-            if (!buildOutputs.isEmpty() && actionSucceeded) {
+            if (!outputArtifacts.isEmpty() && actionSucceeded) {
                 callPublish(action, model, listener);
             }
         }
@@ -164,7 +173,7 @@ public class AWSCodePipelinePublisher extends Notifier {
                 action.getProject().getName(),
                 model,
                 awsClientFactory,
-                buildOutputs,
+                outputArtifacts,
                 listener));
     }
 
@@ -177,12 +186,11 @@ public class AWSCodePipelinePublisher extends Notifier {
         return BuildStepMonitor.STEP;
     }
 
-    public OutputTuple[] getBuildOutputs() {
-        if (buildOutputs.isEmpty()) {
+    public OutputArtifact[] getOutputArtifacts() {
+        if (outputArtifacts.isEmpty()) {
             return null;
-        }
-        else {
-            return buildOutputs.toArray(new OutputTuple[buildOutputs.size()]);
+        } else {
+            return outputArtifacts.toArray(new OutputArtifact[outputArtifacts.size()]);
         }
     }
 
@@ -222,6 +230,21 @@ public class AWSCodePipelinePublisher extends Notifier {
         }
     }
 
+    // Retain backwards compatibility: migrate from OutputTuple to OutputArtifact
+    // https://wiki.jenkins-ci.org/display/JENKINS/Hint+on+retaining+backward+compatibility
+    protected Object readResolve() {
+        if (buildOutputs != null) {
+            if (outputArtifacts == null) {
+                outputArtifacts = new ArrayList<>();
+            }
+            for (final OutputTuple tuple : buildOutputs) {
+                outputArtifacts.add(new OutputArtifact(tuple.getOutput()));
+            }
+        }
+        return this;
+    }
+
+    @Deprecated // plugin now uses OutputArtifact
     public static final class OutputTuple implements Serializable {
         private static final long serialVersionUID = 1L;
 

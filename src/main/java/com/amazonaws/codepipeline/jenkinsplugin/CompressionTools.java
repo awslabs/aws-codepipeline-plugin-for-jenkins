@@ -150,7 +150,7 @@ public final class CompressionTools {
             final BuildListener listener)
             throws IOException {
         final Path pathToCompress = resolveCompressionPath(directoryToZip, workspace);
-        final List<File> files = addFilesToCompress(pathToCompress);
+        final List<File> files = addFilesToCompress(pathToCompress, listener);
 
         LoggingHelper.log(listener, "Compressing Directory '%s' as a '%s' archive",
                 pathToCompress.toString(),
@@ -169,7 +169,7 @@ public final class CompressionTools {
         }
     }
 
-    public static List<File> addFilesToCompress(final Path pathToCompress) throws IOException {
+    public static List<File> addFilesToCompress(final Path pathToCompress, final BuildListener listener) throws IOException {
         final List<File> files = new ArrayList<>();
 
         if (pathToCompress != null) {
@@ -181,6 +181,15 @@ public final class CompressionTools {
                 @Override
                 public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
                     files.add(file.toFile());
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFileFailed(final Path file, final IOException e) throws IOException {
+                    if (e != null) {
+                        LoggingHelper.log(listener, "Failed to visit file '%s'. Error: %s.", file.toString(), e.getMessage());
+                        LoggingHelper.log(listener, e);
+                        throw e;
+                    }
                     return FileVisitResult.CONTINUE;
                 }
             });

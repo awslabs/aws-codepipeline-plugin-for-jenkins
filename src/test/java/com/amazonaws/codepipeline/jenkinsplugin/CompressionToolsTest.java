@@ -37,6 +37,7 @@ public class CompressionToolsTest {
 
     private CodePipelineStateModel model;
     private String projectName;
+    private Path testDir;
 
     @Mock
     private AbstractBuild mockBuild;
@@ -48,6 +49,8 @@ public class CompressionToolsTest {
         MockitoAnnotations.initMocks(this);
 
         TestUtils.initializeTestingFolders();
+        testDir = Paths.get(TestUtils.TEST_DIR);
+
         model = new CodePipelineStateModel();
 
         when(mockBuild.getProject()).thenReturn(abstractProject);
@@ -66,7 +69,7 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                new File(TestUtils.TEST_DIR),
+                testDir.toFile(),
                 "",
                 model.getCompressionType(),
                 null);
@@ -83,7 +86,7 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                new File(TestUtils.TEST_DIR),
+                testDir.toFile(),
                 "",
                 model.getCompressionType(),
                 null);
@@ -100,7 +103,7 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                new File(TestUtils.TEST_DIR),
+                testDir.toFile(),
                 "",
                 model.getCompressionType(),
                 null);
@@ -112,40 +115,46 @@ public class CompressionToolsTest {
 
     @Test
     public void returnsAllFilesInDirectory() throws IOException {
-        final Path file = Paths.get(TestUtils.TEST_DIR);
-
-        final List<File> files = CompressionTools.addFilesToCompress(file);
+        final List<File> files = CompressionTools.addFilesToCompress(testDir, null);
         assertEquals(5, files.size());
     }
 
     @Test
     public void followsSymlinks() throws IOException {
-        final Path file = Paths.get(TestUtils.TEST_DIR);
         TestUtils.addSymlinkToFolderInsideWorkspace();
 
-        final List<File> files = CompressionTools.addFilesToCompress(file);
+        final List<File> files = CompressionTools.addFilesToCompress(testDir, null);
         // Symlink to folder with 3 files
         assertEquals(8, files.size());
     }
 
     @Test
     public void followsSymlinksToFiles() throws IOException {
-        final Path file = Paths.get(TestUtils.TEST_DIR);
         TestUtils.addSymlinkToFileInsideWorkspace();
 
-        final List<File> files = CompressionTools.addFilesToCompress(file);
+        final List<File> files = CompressionTools.addFilesToCompress(testDir, null);
         // Symlink to a file
         assertEquals(6, files.size());
     }
 
     @Test
     public void followsSymlinksOutsideTheWorkspace() throws IOException {
-        final Path file = Paths.get(TestUtils.TEST_DIR);
         TestUtils.addSymlinkToFolderOutsideWorkspace();
 
-        final List<File> files = CompressionTools.addFilesToCompress(file);
+        final List<File> files = CompressionTools.addFilesToCompress(testDir, null);
         // Symlink to folder outside workspace with 2 files
         assertEquals(7, files.size());
+    }
+
+    @Test(expected = IOException.class)
+    public void detectsCyclesInWorkspace() throws IOException {
+        TestUtils.addSymlinkToCreateCycleInWorkspace();
+
+        try {
+            CompressionTools.addFilesToCompress(testDir, null);
+        } finally {
+            TestUtils.removeSymlinkCycle();
+        }
     }
 
 }

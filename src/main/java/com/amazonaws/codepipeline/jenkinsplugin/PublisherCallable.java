@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Objects;
 
 import com.amazonaws.auth.BasicSessionCredentials;
-import com.amazonaws.codepipeline.jenkinsplugin.AWSCodePipelinePublisher.OutputTuple;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
@@ -37,14 +36,14 @@ public final class PublisherCallable implements FileCallable<Void> {
     private final String projectName;
     private final CodePipelineStateModel model;
     private final AWSClientFactory awsClientFactory;
-    private final List<OutputTuple> outputs;
+    private final List<OutputArtifact> outputs;
     private final BuildListener listener;
 
     public PublisherCallable(
             final String projectName,
             final CodePipelineStateModel model,
             final AWSClientFactory awsClientFactory,
-            final List<OutputTuple> outputs,
+            final List<OutputArtifact> outputs,
             final BuildListener listener) {
         this.projectName = Objects.requireNonNull(projectName);
         this.model = Objects.requireNonNull(model);
@@ -74,11 +73,11 @@ public final class PublisherCallable implements FileCallable<Void> {
 
         final Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
 
-        for (final OutputTuple directoryToZip : outputs) {
+        for (final OutputArtifact directoryToZip : outputs) {
             final File compressedFile = CompressionTools.compressFile(
                     projectName,
                     workspace,
-                    directoryToZip.getOutput(),
+                    directoryToZip.getLocation(),
                     model.getCompressionType(),
                     listener);
 

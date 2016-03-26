@@ -80,6 +80,14 @@ public class TestUtils {
         Files.createSymbolicLink(Paths.get(TEST_DIR, "SymlinkDir"), Paths.get("..", EXTRA_TEST_DIR));
     }
 
+    public static void addSymlinkToCreateCycleInWorkspace() throws IOException {
+        Files.createSymbolicLink(Paths.get(TEST_DIR, "Dir1", "Cycle"), Paths.get("..", "Dir1"));
+    }
+
+    public static void removeSymlinkCycle() throws IOException {
+        FileUtils.deleteQuietly(Paths.get(TEST_DIR, "Dir1", "Cycle").toFile());
+    }
+
     public static void cleanUpTestingFolders() throws IOException {
         for (final String testDir : new String[] { TEST_DIR, EXTRA_TEST_DIR }) {
             final File file = new File(testDir);
