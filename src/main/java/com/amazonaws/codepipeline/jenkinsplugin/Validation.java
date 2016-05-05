@@ -15,8 +15,8 @@
 package com.amazonaws.codepipeline.jenkinsplugin;
 
 import static org.apache.commons.lang.StringEscapeUtils.escapeHtml;
-import static org.apache.commons.lang.StringEscapeUtils.escapeJava;
 import static org.apache.commons.lang.StringEscapeUtils.escapeSql;
+
 import hudson.model.TaskListener;
 
 import java.util.List;
@@ -30,12 +30,7 @@ public class Validation {
     public static final int MAX_ARTIFACTS = 5;
 
     public static String sanitize(final String string) {
-        String sanitized = string;
-        sanitized = escapeHtml(sanitized);
-        sanitized = escapeJava(sanitized);
-        sanitized = escapeSql(sanitized);
-
-        return sanitized;
+        return escapeSql(escapeHtml(string));
     }
 
     // The Validations here are CodePipeline specific
@@ -147,6 +142,6 @@ public class Validation {
         return projectName != null
                 && !projectName.isEmpty()
                 && projectName.length() <= MAX_PROJECT_NAME_LENGTH;
-        }
+    }
 
 }

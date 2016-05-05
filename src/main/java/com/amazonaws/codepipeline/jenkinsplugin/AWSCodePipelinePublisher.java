@@ -58,13 +58,12 @@ public class AWSCodePipelinePublisher extends Notifier {
         outputArtifacts = new ArrayList<>();
 
         if (outputLocations != null) {
-            for (final Object aJsonBuildArray : outputLocations) {
+            for (final Object outputLocation : outputLocations) {
                 // See AWSCodePipelinePublisher/config.jelly
-                final JSONObject child = (JSONObject) aJsonBuildArray;
-                final String location = (String) child.get("location");
-
-                if (location != null) {
-                    this.outputArtifacts.add(new OutputArtifact(Validation.sanitize(location.trim())));
+                final JSONObject jsonObject = (JSONObject) outputLocation;
+                if (jsonObject.has("location")) {
+                    final String locationValue = jsonObject.getString("location");
+                    this.outputArtifacts.add(new OutputArtifact(Validation.sanitize(locationValue.trim())));
                 }
             }
         }
