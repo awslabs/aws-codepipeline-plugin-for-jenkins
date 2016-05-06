@@ -61,11 +61,11 @@ public final class PublisherCallable implements FileCallable<Void> {
                 model.getProxyPort(),
                 model.getRegion());
 
-        final GetJobDetailsRequest request = new GetJobDetailsRequest();
-        request.setJobId(model.getJob().getId());
+        final GetJobDetailsRequest getJobDetailsRequest = new GetJobDetailsRequest()
+                .withJobId(model.getJob().getId());
+        final GetJobDetailsResult getJobDetailsResult = aws.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
+        final AWSSessionCredentials sessionCredentials = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
 
-        final GetJobDetailsResult result = aws.getCodePipelineClient().getJobDetails(request);
-        final AWSSessionCredentials sessionCredentials = result.getJobDetails().getData().getArtifactCredentials();
         final BasicSessionCredentials temporaryCredentials = new BasicSessionCredentials(
                 sessionCredentials.getAccessKeyId(),
                 sessionCredentials.getSecretAccessKey(),

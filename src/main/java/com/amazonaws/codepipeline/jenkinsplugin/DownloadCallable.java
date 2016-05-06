@@ -30,6 +30,8 @@ import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
+import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
+import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
 import com.amazonaws.services.s3.AmazonS3;
@@ -105,18 +107,22 @@ public final class DownloadCallable implements FileCallable<Void> {
                 model.getProxyHost(),
                 model.getProxyPort(),
                 model.getRegion());
-        final S3ArtifactLocation artifactLocation = artifact.getLocation().getS3Location();
-        final AWSSessionCredentials awsSessionCredentials = job.getData().getArtifactCredentials();
+
+        // Jobs can remain in the build queue for a while, don't rely on the credentials we got from pollForJobs.
+        final GetJobDetailsRequest getJobDetailsRequest = new GetJobDetailsRequest()
+                .withJobId(job.getId());
+        final GetJobDetailsResult getJobDetailsResult = aws.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
+        final AWSSessionCredentials sessionCredentials = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
 
         final BasicSessionCredentials basicCredentials = new BasicSessionCredentials(
-                awsSessionCredentials.getAccessKeyId(),
-                awsSessionCredentials.getSecretAccessKey(),
-                awsSessionCredentials.getSessionToken());
+                sessionCredentials.getAccessKeyId(),
+                sessionCredentials.getSecretAccessKey(),
+                sessionCredentials.getSessionToken());
 
         final AmazonS3 client = aws.getS3Client(basicCredentials);
-        final String bucketName = artifactLocation.getBucketName();
+        final S3ArtifactLocation artifactLocation = artifact.getLocation().getS3Location();
 
-        return client.getObject(bucketName, artifactLocation.getObjectKey());
+        return client.getObject(artifactLocation.getBucketName(), artifactLocation.getObjectKey());
     }
 
     public void downloadAndExtract(
