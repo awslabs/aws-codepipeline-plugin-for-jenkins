@@ -32,8 +32,8 @@ import hudson.util.ListBoxModel;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collections;
+import java.util.Random;
 
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -65,6 +65,8 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         CategoryType.Build,
         CategoryType.Test
     };
+
+    private static final Random RANDOM = new Random();
 
     private Job job;
     private final boolean clearWorkspace;
@@ -123,9 +125,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return false;
     }
 
-    /*
-    AWS PollForJobs Wrapper
-     */
+    // AWS CodePipeline PollForJobs wrapper
     @Override
     protected PollingResult compareRemoteRevisionWith(
             final AbstractProject<?, ?> project,
@@ -135,11 +135,11 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final SCMRevisionState revisionState)
             throws IOException, InterruptedException {
 
-        final ActionTypeId actionTypeId = new ActionTypeId();
-        actionTypeId.setCategory(actionTypeCategory);
-        actionTypeId.setOwner(ActionOwner.Custom);
-        actionTypeId.setProvider(actionTypeProvider);
-        actionTypeId.setVersion(actionTypeVersion);
+        final ActionTypeId actionTypeId = new ActionTypeId()
+                .withCategory(actionTypeCategory)
+                .withOwner(ActionOwner.Custom)
+                .withProvider(actionTypeProvider)
+                .withVersion(actionTypeVersion);
 
         LoggingHelper.log(listener, "Polling for jobs for action type id: ["
                 + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s]",
@@ -189,42 +189,40 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return true;
     }
 
-    public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) {
+    public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) throws InterruptedException {
         validate(taskListener);
 
         final AWSClients aws = awsClientFactory.getAwsClient(awsAccessKey, awsSecretKey, proxyHost, proxyPort, region);
         final AWSCodePipelineClient codePipelineClient = aws.getCodePipelineClient();
-        final PollForJobsRequest request = new PollForJobsRequest();
-        request.setActionTypeId(actionType);
 
-        final Map<String, String> queryParam = new HashMap<>();
-        queryParam.put("ProjectName", projectName);
-        request.setQueryParam(queryParam);
-        request.setMaxBatchSize(1);
+        // Wait a bit before polling, so not all Jenkins jobs poll at the same time
+        final long jitter = (long) RANDOM.nextInt(15 * 1000);
+        Thread.sleep(jitter);
 
-        final PollForJobsResult result = codePipelineClient.pollForJobs(request);
+        final PollForJobsResult result = codePipelineClient.pollForJobs(new PollForJobsRequest()
+                .withActionTypeId(actionType)
+                .withMaxBatchSize(1)
+                .withQueryParam(Collections.singletonMap("ProjectName", projectName)));
 
-        if (result.getJobs().size() == 1) {
-            job = result.getJobs().get(0);
-
-            LoggingHelper.log(taskListener, "Received Job request with ID: %s", job.getId());
-
-            final AcknowledgeJobRequest acknowledgeJobRequest = new AcknowledgeJobRequest();
-            acknowledgeJobRequest.setJobId(job.getId());
-            acknowledgeJobRequest.setNonce(job.getNonce());
-
-            final AcknowledgeJobResult acknowledgeJobResult = codePipelineClient.acknowledgeJob(acknowledgeJobRequest);
-
-            if (acknowledgeJobResult.getStatus().equals(JobStatus.InProgress.name())) {
-                LoggingHelper.log(taskListener, "Job Acknowledged with ID: %s", acknowledgeJobRequest.getJobId());
-
-                return PollingResult.BUILD_NOW;
-            }
+        if (result.getJobs().size() < 1) {
+            LoggingHelper.log(taskListener, "No jobs found.");
+            return PollingResult.NO_CHANGES;
         }
 
-        LoggingHelper.log(taskListener, "No jobs found.");
+        job = result.getJobs().get(0);
+        LoggingHelper.log(taskListener, "Received job with ID: %s", job.getId());
 
-        return PollingResult.NO_CHANGES;
+        final AcknowledgeJobResult acknowledgeJobResult = codePipelineClient.acknowledgeJob(new AcknowledgeJobRequest()
+                .withJobId(job.getId())
+                .withNonce(job.getNonce()));
+
+        if (!acknowledgeJobResult.getStatus().equals(JobStatus.InProgress.name())) {
+            LoggingHelper.log(taskListener, "Failed to acknowledge job with ID: %s", job.getId());
+            return PollingResult.NO_CHANGES;
+        }
+
+        LoggingHelper.log(taskListener, "Acknowledged job with ID: %s", job.getId());
+        return PollingResult.BUILD_NOW;
     }
 
     @Override

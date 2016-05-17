@@ -40,7 +40,7 @@ public class TestUtils {
     public static void assertEqualsIgnoreCase(final String strToMatch, final String strToCheck) {
         final String strToMatchLower = strToMatch.toLowerCase();
         final String strToCheckLower = strToCheck.toLowerCase();
-        assertEquals(strToCheckLower, strToMatchLower);
+        assertEquals(strToMatchLower, strToCheckLower);
     }
 
     public static ByteArrayOutputStream setOutputStream() {
