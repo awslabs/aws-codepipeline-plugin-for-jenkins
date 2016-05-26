@@ -20,8 +20,10 @@ import hudson.remoting.VirtualChannel;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import com.amazonaws.auth.BasicSessionCredentials;
@@ -71,29 +73,37 @@ public final class PublisherCallable implements FileCallable<Void> {
                 sessionCredentials.getSecretAccessKey(),
                 sessionCredentials.getSessionToken());
 
-        final Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
+        Map<String, String> artifactLocations = new HashMap<>();
+        for(final OutputArtifact outputArtifact : outputs) {
+            artifactLocations.put(
+                    outputArtifact.getArtifactName(),
+                    outputArtifact.getLocation()
+            );
+        }
 
-        for (final OutputArtifact directoryToZip : outputs) {
-            final File compressedFile = CompressionTools.compressFile(
-                    projectName,
-                    workspace,
-                    directoryToZip.getLocation(),
-                    model.getCompressionType(),
-                    listener);
-
-            final Artifact artifact = artifactIterator.next();
-
-            if (compressedFile != null) {
-                PublisherTools.uploadFile(
-                        compressedFile,
-                        artifact,
+        for(final Artifact artifact : model.getJob().getData().getOutputArtifacts()) {
+            final String artifactLocation = artifactLocations.get(artifact.getName());
+            if(artifactLocation != null) {
+                final File compressedFile = CompressionTools.compressFile(
+                        projectName,
+                        workspace,
+                        artifactLocation,
                         model.getCompressionType(),
-                        model.getEncryptionKey(),
-                        temporaryCredentials,
-                        aws,
                         listener);
+                if (compressedFile != null) {
+                    PublisherTools.uploadFile(
+                            compressedFile,
+                            artifact,
+                            model.getCompressionType(),
+                            model.getEncryptionKey(),
+                            temporaryCredentials,
+                            aws,
+                            listener);
+                } else {
+                    LoggingHelper.log(listener, "Failed to compress file and upload file");
+                }
             } else {
-                LoggingHelper.log(listener, "Failed to compress file and upload file");
+                LoggingHelper.log(listener, "No defined output artifact matched the jobs output artifact");
             }
         }
 

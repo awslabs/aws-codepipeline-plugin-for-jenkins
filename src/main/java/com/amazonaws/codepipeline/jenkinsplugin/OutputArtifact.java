@@ -21,12 +21,19 @@ public final class OutputArtifact implements Serializable {
 
     private final String location;
 
-    public OutputArtifact(final String location) {
+    private final String artifactName;
+
+    public OutputArtifact(final String location, final String artifactName) {
         this.location = location;
+        this.artifactName = artifactName;
     }
 
     public String getLocation() {
         return location;
+    }
+
+    public String getArtifactName() {
+        return artifactName;
     }
 
 }
