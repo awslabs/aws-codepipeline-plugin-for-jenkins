@@ -45,6 +45,8 @@ import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.Compressi
  * It only works together with the CodePipeline SCM plugin to get access to the Job Data, Credentials and Proxy.
  */
 public class AWSCodePipelinePublisher extends Notifier {
+    private static final String JELLY_KEY_LOCATION = "location";
+    private static final String JELLY_KEY_ARTIFACT_NAME = "artifactName";
 
     @Deprecated // renamed to outputArtifacts
     private final transient List<OutputTuple> buildOutputs;
@@ -61,9 +63,13 @@ public class AWSCodePipelinePublisher extends Notifier {
             for (final Object outputLocation : outputLocations) {
                 // See AWSCodePipelinePublisher/config.jelly
                 final JSONObject jsonObject = (JSONObject) outputLocation;
-                if (jsonObject.has("location")) {
-                    final String locationValue = jsonObject.getString("location");
-                    this.outputArtifacts.add(new OutputArtifact(Validation.sanitize(locationValue.trim())));
+                if (jsonObject.has(JELLY_KEY_LOCATION) && jsonObject.has(JELLY_KEY_ARTIFACT_NAME)) {
+                    final String locationValue = jsonObject.getString(JELLY_KEY_LOCATION);
+                    final String artifactLocation = jsonObject.getString(JELLY_KEY_ARTIFACT_NAME);
+                    this.outputArtifacts.add(new OutputArtifact(
+                            Validation.sanitize(locationValue.trim()),
+                            Validation.sanitize(artifactLocation.trim())
+                    ));
                 }
             }
         }
@@ -119,6 +125,11 @@ public class AWSCodePipelinePublisher extends Notifier {
         try {
             LoggingHelper.log(listener, "Publishing artifacts");
 
+            /* TODO should this restriction remain?
+
+            Maybe this should not be a requirement - a build should be
+            allowed to output more artifacts then a pipeline may need.
+
             if (model.getJob().getData().getOutputArtifacts().size() != outputArtifacts.size()) {
                 throw new IllegalArgumentException(String.format(
                             "Error: the number of output artifacts in the Jenkins project and in the AWS "
@@ -132,6 +143,8 @@ public class AWSCodePipelinePublisher extends Notifier {
                             model.getJob().getData().getPipelineContext().getStage().getName(),
                             model.getJob().getData().getPipelineContext().getAction().getName()));
             }
+
+            */
 
             if (!outputArtifacts.isEmpty() && actionSucceeded) {
                 callPublish(action, model, listener);
@@ -237,7 +250,8 @@ public class AWSCodePipelinePublisher extends Notifier {
                 outputArtifacts = new ArrayList<>();
             }
             for (final OutputTuple tuple : buildOutputs) {
-                outputArtifacts.add(new OutputArtifact(tuple.getOutput()));
+                // TODO The addition of artifact names breaks backwards comparability
+                outputArtifacts.add(new OutputArtifact(tuple.getOutput(), ""));
             }
         }
         return this;

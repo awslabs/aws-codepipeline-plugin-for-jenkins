@@ -5,11 +5,15 @@
   <f:repeatable var="outputLocations" items="${instance.outputArtifacts}" noAddButton="false" minimum="0">
   <table width="100%">
       <f:description>
-          If these locations are left blank the plugin will upload the whole workspace to AWS CodePipeline, if no
-          locations are added, then only the result will be published back to AWS CodePipeline.
+          If a location is left blank the plugin will upload the whole workspace to AWS CodePipeline. Locations
+          will only be published to AWS if there is a corresponding artifact name defined in the output
+          artifact list.
       </f:description>
       <f:entry title="Location">
           <f:textbox name="Location.location" value="${outputLocations.location}" />
+      </f:entry>
+      <f:entry title="Artifact Name">
+          <f:textbox name="ArtifactName.artifactName" value="${outputLocations.artifactName}" />
       </f:entry>
       <f:entry>
           <div align="right">
