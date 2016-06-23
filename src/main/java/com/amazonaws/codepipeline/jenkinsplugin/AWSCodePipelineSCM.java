@@ -56,6 +56,7 @@ import com.amazonaws.services.codepipeline.model.PollForJobsResult;
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
     public static final Regions[] AVAILABLE_REGIONS = {
+        Regions.EU_WEST_1,
         Regions.US_EAST_1,
         Regions.US_WEST_2
     };
