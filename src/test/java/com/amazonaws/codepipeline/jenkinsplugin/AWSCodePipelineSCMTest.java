@@ -18,6 +18,9 @@ import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertContainsI
 import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertEqualsIgnoreCase;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyInt;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,6 +45,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -69,11 +75,22 @@ public class AWSCodePipelineSCMTest extends Suite {
     }
 
     private static class TestBase {
-        protected String uniqueJobID;
+        protected static final String PROJECT_NAME = "Project";
+        protected static final boolean CLEAR_WORKSPACE = false;
+        protected static final String REGION = "us-east-1";
+        protected static final String ACCESS_KEY = "1234";
+        protected static final String SECRET_KEY = "4321";
+        protected static final String PROXY_HOST = "";
+        protected static final int PROXY_PORT = 0;
+        protected static final String PLUGIN_VERSION = "aws-codepipeline:unknown";
+
+        protected String jobId;
+        protected String jobNonce;
 
         public void setUp() throws IOException, InterruptedException {
             MockitoAnnotations.initMocks(this);
-            uniqueJobID = UUID.randomUUID().toString();
+            jobId = UUID.randomUUID().toString();
+            jobNonce = UUID.randomUUID().toString();
         }
     }
 
@@ -84,16 +101,14 @@ public class AWSCodePipelineSCMTest extends Suite {
                 .withProvider("Jenkins-Build")
                 .withVersion("1");
 
-        @Mock
-        private AWSClientFactory mockFactory;
-        @Mock
-        private AWSClients mockAWSClients;
-        @Mock
-        private AWSCodePipelineClient codePipelineClient;
-        @Mock
-        private PollForJobsResult pollForJobsResult;
-        @Mock
-        private AcknowledgeJobResult acknowledgeJobResult;
+        @Mock private AWSClientFactory mockFactory;
+        @Mock private AWSClients mockAWSClients;
+        @Mock private AWSCodePipelineClient codePipelineClient;
+        @Mock private PollForJobsResult pollForJobsResult;
+        @Mock private AcknowledgeJobResult acknowledgeJobResult;
+
+        @Captor private ArgumentCaptor<PollForJobsRequest> pollForJobsRequest;
+        @Captor private ArgumentCaptor<AcknowledgeJobRequest> acknowledgeJobRequest;
 
         private AWSCodePipelineSCMTestExtension scm;
         private Job job;
@@ -104,28 +119,24 @@ public class AWSCodePipelineSCMTest extends Suite {
         public void setUp() throws IOException, InterruptedException {
             super.setUp();
 
-            when(mockFactory.getAwsClient(
-                    any(String.class),
-                    any(String.class),
-                    any(String.class),
-                    any(Integer.class),
-                    any(String.class))).thenReturn(mockAWSClients);
+            when(mockFactory.getAwsClient(anyString(), anyString(), anyString(), anyInt(), anyString(), anyString()))
+                    .thenReturn(mockAWSClients);
 
             when(mockAWSClients.getCodePipelineClient()).thenReturn(codePipelineClient);
 
             job = new Job()
-                    .withId(uniqueJobID)
+                    .withId(jobId)
                     .withData(new JobData().withOutputArtifacts(new ArrayList<Artifact>()))
-                    .withNonce("0");
+                    .withNonce(jobNonce);
 
             scm = new AWSCodePipelineSCMTestExtension(
-                    "Project",
-                    false,
-                    "us-east-1",
-                    "", // Access Key
-                    "", // Secret Key
-                    "", // ProxyHost
-                    "0",
+                    PROJECT_NAME,
+                    CLEAR_WORKSPACE,
+                    REGION,
+                    ACCESS_KEY,
+                    SECRET_KEY,
+                    PROXY_HOST,
+                    String.valueOf(PROXY_PORT),
                     ACTION_TYPE.getCategory(),
                     ACTION_TYPE.getProvider(),
                     ACTION_TYPE.getVersion());
@@ -146,11 +157,23 @@ public class AWSCodePipelineSCMTest extends Suite {
             final String expectedMessage = String.format(
                     "[AWS CodePipeline Plugin] Received job with ID: %s\n"
                     + "[AWS CodePipeline Plugin] Acknowledged job with ID: %s",
-                    uniqueJobID, uniqueJobID);
+                    jobId, jobId);
             assertContainsIgnoreCase(expectedMessage, outContent.toString());
 
-            verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));
-            verify(codePipelineClient).acknowledgeJob(any(AcknowledgeJobRequest.class));
+            final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
+            inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+            inOrder.verify(mockAWSClients).getCodePipelineClient();
+            inOrder.verify(codePipelineClient).pollForJobs(pollForJobsRequest.capture());
+            inOrder.verify(codePipelineClient).acknowledgeJob(acknowledgeJobRequest.capture());
+
+            final PollForJobsRequest pollRequest = pollForJobsRequest.getValue();
+            assertEquals(ACTION_TYPE, pollRequest.getActionTypeId());
+            assertEquals(1, pollRequest.getMaxBatchSize().intValue());
+            assertEquals(1, pollRequest.getQueryParam().size());
+            assertEquals(PROJECT_NAME, pollRequest.getQueryParam().get("ProjectName"));
+
+            assertEquals(jobId, acknowledgeJobRequest.getValue().getJobId());
+            assertEquals(jobNonce, acknowledgeJobRequest.getValue().getNonce());
         }
 
         @Test
@@ -177,7 +200,7 @@ public class AWSCodePipelineSCMTest extends Suite {
             final String expectedMessage = String.format(
                     "[AWS CodePipeline Plugin] Received job with ID: %s\n"
                     + "[AWS CodePipeline Plugin] Failed to acknowledge job with ID: %s\n",
-                    uniqueJobID, uniqueJobID);
+                    jobId, jobId);
             originalOut.println(expectedMessage);
             originalOut.println(outContent.toString());
             assertEqualsIgnoreCase(expectedMessage, outContent.toString());
@@ -230,7 +253,7 @@ public class AWSCodePipelineSCMTest extends Suite {
             when(mockBuild.getEnvironment(any(TaskListener.class))).thenReturn(envVars);
             when(envVars.get(any(String.class))).thenReturn("Project");
             when(model.getJob()).thenReturn(mockJob);
-            when(mockJob.getId()).thenReturn(uniqueJobID);
+            when(mockJob.getId()).thenReturn(jobId);
 
             CodePipelineStateService.setModel(model);
         }

@@ -94,12 +94,11 @@ public final class PublisherTools {
         final AmazonS3 amazonS3 = aws.getS3Client(temporaryCredentials);
         final List<PartETag> partETags = new ArrayList<>();
 
-        final InitiateMultipartUploadRequest initiateMultipartUploadRequest
-                = new InitiateMultipartUploadRequest(
+        final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(
                 bucketName,
                 objectKey,
-                detectCompressionType(compressionType))
-                    .withSSEAwsKeyManagementParams(toSSEAwsKeyManagementParams(encryptionKey));
+                createObjectMetadata(compressionType))
+            .withSSEAwsKeyManagementParams(toSSEAwsKeyManagementParams(encryptionKey));
 
         final InitiateMultipartUploadResult initiateMultipartUploadResult
                 = amazonS3.initiateMultipartUpload(initiateMultipartUploadRequest);
@@ -137,7 +136,7 @@ public final class PublisherTools {
         LoggingHelper.log(listener, "Upload Successful");
     }
 
-    public static ObjectMetadata detectCompressionType(final CompressionType type) {
+    public static ObjectMetadata createObjectMetadata(final CompressionType type) {
         final ObjectMetadata objectMetadata = new ObjectMetadata();
 
         switch (type) {
@@ -148,7 +147,6 @@ public final class PublisherTools {
                 objectMetadata.setContentType("application/gzip");
                 break;
             case Zip:
-            case None:
                 objectMetadata.setContentType("application/zip");
                 break;
         }

@@ -20,20 +20,25 @@ import hudson.remoting.VirtualChannel;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
 import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
 import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
 
 public final class PublisherCallable implements FileCallable<Void> {
+
     private static final long serialVersionUID = 1L;
 
     private final String projectName;
+    private final String pluginVersion;
     private final CodePipelineStateModel model;
     private final AWSClientFactory awsClientFactory;
     private final List<OutputArtifact> outputs;
@@ -42,14 +47,17 @@ public final class PublisherCallable implements FileCallable<Void> {
     public PublisherCallable(
             final String projectName,
             final CodePipelineStateModel model,
-            final AWSClientFactory awsClientFactory,
             final List<OutputArtifact> outputs,
+            final AWSClientFactory awsClientFactory,
+            final String pluginVersion,
             final BuildListener listener) {
+
         this.projectName = Objects.requireNonNull(projectName);
         this.model = Objects.requireNonNull(model);
         this.outputs = Objects.requireNonNull(outputs);
-        this.listener = listener;
         this.awsClientFactory = awsClientFactory;
+        this.pluginVersion = Objects.requireNonNull(pluginVersion);
+        this.listener = listener;
     }
 
     @Override
@@ -59,7 +67,8 @@ public final class PublisherCallable implements FileCallable<Void> {
                 model.getAwsSecretKey(),
                 model.getProxyHost(),
                 model.getProxyPort(),
-                model.getRegion());
+                model.getRegion(),
+                pluginVersion);
 
         final GetJobDetailsRequest getJobDetailsRequest = new GetJobDetailsRequest()
                 .withJobId(model.getJob().getId());
@@ -73,21 +82,35 @@ public final class PublisherCallable implements FileCallable<Void> {
 
         final Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
 
-        for (final OutputArtifact directoryToZip : outputs) {
-            final File compressedFile = CompressionTools.compressFile(
-                    projectName,
-                    workspace,
-                    directoryToZip.getLocation(),
-                    model.getCompressionType(),
-                    listener);
+        for (final OutputArtifact output : outputs) {
+            final Path pathToUpload = CompressionTools.resolveWorkspacePath(workspace, output.getLocation());
+
+            final File fileToUpload;
+            CompressionType compressionType = model.getCompressionType();
+
+            if (Files.isDirectory(pathToUpload.toRealPath())) {
+                // Default to ZIP compression if we could not detect the compression type
+                if (compressionType == CompressionType.None) {
+                    compressionType = CompressionType.Zip;
+                }
+
+                fileToUpload = CompressionTools.compressFile(
+                        projectName,
+                        pathToUpload,
+                        compressionType,
+                        listener);
+            } else {
+                fileToUpload = pathToUpload.toFile();
+                compressionType = CompressionType.None;
+            }
 
             final Artifact artifact = artifactIterator.next();
 
-            if (compressedFile != null) {
+            if (fileToUpload != null) {
                 PublisherTools.uploadFile(
-                        compressedFile,
+                        fileToUpload,
                         artifact,
-                        model.getCompressionType(),
+                        compressionType,
                         model.getEncryptionKey(),
                         temporaryCredentials,
                         aws,

@@ -69,8 +69,7 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                testDir.toFile(),
-                "",
+                testDir,
                 model.getCompressionType(),
                 null);
 
@@ -86,8 +85,7 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                testDir.toFile(),
-                "",
+                testDir,
                 model.getCompressionType(),
                 null);
 
@@ -103,14 +101,25 @@ public class CompressionToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 projectName,
-                testDir.toFile(),
-                "",
+                testDir,
                 model.getCompressionType(),
                 null);
 
         assertTrue(compressedFile.length() > 0);
         assertTrue(compressedFile.getName().contains(projectName));
         assertTrue(compressedFile.getName().contains(".tar.gz"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void failsWithUnknownCompressionType() throws IOException {
+        projectName = "UnkownkCompressionProject";
+        model.setCompressionType(CodePipelineStateModel.CompressionType.None);
+
+        CompressionTools.compressFile(
+                projectName,
+                testDir,
+                model.getCompressionType(),
+                null);
     }
 
     @Test

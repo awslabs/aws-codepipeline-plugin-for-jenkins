@@ -27,6 +27,8 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -57,6 +59,8 @@ import com.amazonaws.services.s3.model.UploadPartResult;
 
 public class PublisherToolsTest {
 
+    private static Path PATH_TO_COMPRESS = Paths.get(TestUtils.TEST_DIR);
+
     private ByteArrayOutputStream outContent;
 
     @Mock private AWSClients mockAWS;
@@ -86,6 +90,7 @@ public class PublisherToolsTest {
         when(mockLocation.getS3Location()).thenReturn(s3ArtifactLocation);
         when(s3ArtifactLocation.getBucketName()).thenReturn("Bucket");
         when(s3ArtifactLocation.getObjectKey()).thenReturn("Key");
+
         outContent = TestUtils.setOutputStream();
     }
 
@@ -131,8 +136,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File(TestUtils.TEST_DIR),
-                "",
+                PATH_TO_COMPRESS,
                 CompressionType.Zip,
                 null);
 
@@ -173,8 +177,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File(TestUtils.TEST_DIR),
-                "",
+                PATH_TO_COMPRESS,
                 CompressionType.Zip,
                 null);
 
@@ -210,8 +213,7 @@ public class PublisherToolsTest {
 
         final File compressedFile = CompressionTools.compressFile(
                 "ZipProject",
-                new File(TestUtils.TEST_DIR),
-                "",
+                PATH_TO_COMPRESS,
                 CompressionType.Zip,
                 null);
 
@@ -239,31 +241,31 @@ public class PublisherToolsTest {
     }
 
     @Test
-    public void detectCompressionTypeZipSuccess() {
-        final ObjectMetadata metadata = PublisherTools.detectCompressionType(CompressionType.Zip);
+    public void createObjectMetadataForZipCompressionType() {
+        final ObjectMetadata metadata = PublisherTools.createObjectMetadata(CompressionType.Zip);
 
         assertEquals("application/zip", metadata.getContentType());
     }
 
     @Test
-    public void detectCompressionTypeTarSuccess() {
-        final ObjectMetadata metadata = PublisherTools.detectCompressionType(CompressionType.Tar);
+    public void createObjectMetadataForTarCompressionType() {
+        final ObjectMetadata metadata = PublisherTools.createObjectMetadata(CompressionType.Tar);
 
         assertEquals("application/tar", metadata.getContentType());
     }
 
     @Test
-    public void detectCompressionTypeTarGzSuccess() {
-        final ObjectMetadata metadata = PublisherTools.detectCompressionType(CompressionType.TarGz);
+    public void createObjectMetadataForTarGzCompressionType() {
+        final ObjectMetadata metadata = PublisherTools.createObjectMetadata(CompressionType.TarGz);
 
         assertEquals("application/gzip", metadata.getContentType());
     }
 
     @Test
-    public void detectCompressionTypeDefaultToZipIfUnknownSuccess() {
-        final ObjectMetadata metadata = PublisherTools.detectCompressionType(CompressionType.None);
+    public void createObjectMetadataForUnknownCompressionType() {
+        final ObjectMetadata metadata = PublisherTools.createObjectMetadata(CompressionType.None);
 
-        assertEquals("application/zip", metadata.getContentType());
+        assertNull(metadata.getContentType());
     }
 
 }

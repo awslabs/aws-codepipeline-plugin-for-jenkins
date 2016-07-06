@@ -47,18 +47,22 @@ public final class DownloadCallable implements FileCallable<Void> {
     private final Job job;
     private final CodePipelineStateModel model;
     private final AWSClientFactory awsClientFactory;
+    private final String pluginVersion;
 
     public DownloadCallable(
             final boolean clearWorkspace,
             final Job job,
             final CodePipelineStateModel model,
             final AWSClientFactory awsClientFactory,
+            final String pluginVersion,
             final TaskListener listener) {
+
         this.clearWorkspace = clearWorkspace;
         this.listener = listener;
         this.job = job;
         this.model = model;
         this.awsClientFactory = awsClientFactory;
+        this.pluginVersion = pluginVersion;
     }
 
     @Override
@@ -106,7 +110,8 @@ public final class DownloadCallable implements FileCallable<Void> {
                 model.getAwsSecretKey(),
                 model.getProxyHost(),
                 model.getProxyPort(),
-                model.getRegion());
+                model.getRegion(),
+                pluginVersion);
 
         // Jobs can remain in the build queue for a while, don't rely on the credentials we got from pollForJobs.
         final GetJobDetailsRequest getJobDetailsRequest = new GetJobDetailsRequest()

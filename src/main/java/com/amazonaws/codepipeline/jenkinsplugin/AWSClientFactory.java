@@ -25,11 +25,14 @@ public class AWSClientFactory implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    public AWSClients getAwsClient(final String awsAccessKey,
-                                   final String awsSecretKey,
-                                   final String proxyHost,
-                                   final int proxyPort,
-                                   final String region) {
+    public AWSClients getAwsClient(
+            final String awsAccessKey,
+            final String awsSecretKey,
+            final String proxyHost,
+            final int proxyPort,
+            final String region,
+            final String pluginVersion) {
+
         final Region awsRegion = Region.getRegion(Regions.fromName(region));
         final AWSClients aws;
 
@@ -37,7 +40,8 @@ public class AWSClientFactory implements Serializable {
             aws = AWSClients.fromDefaultCredentialChain(
                     awsRegion,
                     proxyHost,
-                    proxyPort);
+                    proxyPort,
+                    pluginVersion);
         }
         else {
             aws = AWSClients.fromBasicCredentials(
@@ -45,7 +49,8 @@ public class AWSClientFactory implements Serializable {
                     awsAccessKey,
                     awsSecretKey,
                     proxyHost,
-                    proxyPort);
+                    proxyPort,
+                    pluginVersion);
         }
 
         return aws;

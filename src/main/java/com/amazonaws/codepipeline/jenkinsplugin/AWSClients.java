@@ -29,17 +29,18 @@ import com.amazonaws.services.s3.AmazonS3Client;
 public class AWSClients {
 
     private final AWSCodePipelineClient codePipelineClient;
-    private final ClientConfiguration   clientCfg;
-    private final Region                region;
+    private final ClientConfiguration clientCfg;
+    private final Region region;
 
     public AWSClients(
             final Region region,
             final AWSCredentials credentials,
             final String proxyHost,
-            final int proxyPort) {
+            final int proxyPort,
+            final String pluginVersion) {
 
         this.region = region;
-        clientCfg = new ClientConfiguration();
+        clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
 
         if (proxyHost != null && proxyPort > 0) {
             clientCfg.setProxyHost(proxyHost);
@@ -48,15 +49,13 @@ public class AWSClients {
 
         if (credentials == null) {
             this.codePipelineClient = new AWSCodePipelineClient(clientCfg);
-        }
-        else {
+        } else {
             this.codePipelineClient = new AWSCodePipelineClient(credentials, clientCfg);
         }
 
         if (region == null) {
             this.codePipelineClient.setRegion(Region.getRegion(Regions.US_EAST_1));
-        }
-        else {
+        } else {
             this.codePipelineClient.setRegion(region);
         }
     }
@@ -64,8 +63,10 @@ public class AWSClients {
     public static AWSClients fromDefaultCredentialChain(
             final Region region,
             final String proxyHost,
-            final int proxyPort) {
-        return new AWSClients(region, null, proxyHost, proxyPort);
+            final int proxyPort,
+            final String pluginVersion) {
+
+        return new AWSClients(region, null, proxyHost, proxyPort, pluginVersion);
     }
 
     public static AWSClients fromBasicCredentials(
@@ -73,15 +74,23 @@ public class AWSClients {
             final String awsAccessKey,
             final String awsSecretKey,
             final String proxyHost,
-            final int proxyPort) {
-        return new AWSClients(region, new BasicAWSCredentials(awsAccessKey, awsSecretKey), proxyHost, proxyPort);
+            final int proxyPort,
+            final String pluginVersion) {
+
+        return new AWSClients(
+                region,
+                new BasicAWSCredentials(awsAccessKey, awsSecretKey),
+                proxyHost,
+                proxyPort,
+                pluginVersion);
     }
 
     public AmazonS3 getS3Client(final AWSSessionCredentials sessionCredentials) {
         Validate.notNull(sessionCredentials);
         Validate.notNull(region);
 
-        final AmazonS3Client client = new AmazonS3Client(sessionCredentials,
+        final AmazonS3Client client = new AmazonS3Client(
+                sessionCredentials,
                 clientCfg.withSignerOverride("AWSS3V4SignerType"));
         client.setRegion(region);
         return client;

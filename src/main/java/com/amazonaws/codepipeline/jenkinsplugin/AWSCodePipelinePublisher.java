@@ -98,13 +98,13 @@ public class AWSCodePipelinePublisher extends Notifier {
                 model.getAwsSecretKey(),
                 model.getProxyHost(),
                 model.getProxyPort(),
-                model.getRegion());
+                model.getRegion(),
+                JenkinsMetadata.getPluginVersion());
 
         if (!actionSucceeded) {
             if (model.getActionTypeCategory() == CategoryType.Build) {
                 error = "Build failed";
-            }
-            else if (model.getActionTypeCategory() == CategoryType.Test) {
+            } else if (model.getActionTypeCategory() == CategoryType.Test) {
                 error = "Tests failed";
             }
         }
@@ -168,11 +168,13 @@ public class AWSCodePipelinePublisher extends Notifier {
             final CodePipelineStateModel model,
             final BuildListener listener)
             throws IOException, InterruptedException {
+
         action.getWorkspace().act(new PublisherCallable(
                 action.getProject().getName(),
                 model,
-                awsClientFactory,
                 outputArtifacts,
+                awsClientFactory,
+                JenkinsMetadata.getPluginVersion(),
                 listener));
     }
 

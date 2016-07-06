@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
+import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -83,6 +84,23 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     private final int proxyPort;
 
     private final AWSClientFactory awsClientFactory;
+
+    @DataBoundConstructor
+    public AWSCodePipelineSCM(
+            final String name,
+            final boolean clearWorkspace,
+            final String region,
+            final String awsAccessKey,
+            final String awsSecretKey,
+            final String proxyHost,
+            final String proxyPort,
+            final String category,
+            final String provider,
+            final String version) {
+
+        this(name, clearWorkspace, region, awsAccessKey, awsSecretKey, proxyHost, proxyPort,
+                category, provider, version, new AWSClientFactory());
+    }
 
     public AWSCodePipelineSCM(
             final String projectName,
@@ -185,6 +203,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                     model.getJob(),
                     model,
                     awsClientFactory,
+                    JenkinsMetadata.getPluginVersion(),
                     listener));
 
         return true;
@@ -193,7 +212,14 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) throws InterruptedException {
         validate(taskListener);
 
-        final AWSClients aws = awsClientFactory.getAwsClient(awsAccessKey, awsSecretKey, proxyHost, proxyPort, region);
+        final AWSClients aws = awsClientFactory.getAwsClient(
+                awsAccessKey,
+                awsSecretKey,
+                proxyHost,
+                proxyPort,
+                region,
+                JenkinsMetadata.getPluginVersion());
+
         final AWSCodePipelineClient codePipelineClient = aws.getCodePipelineClient();
 
         // Wait a bit before polling, so not all Jenkins jobs poll at the same time

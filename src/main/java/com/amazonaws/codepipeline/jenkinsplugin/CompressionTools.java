@@ -48,31 +48,30 @@ public final class CompressionTools {
     private CompressionTools() {}
 
     // Compressing the file to upload to S3 should use the same type of compression as the customer
-    // used to zip it up.
+    // used for the input artifact.
     public static File compressFile(
             final String projectName,
-            final File workspace,
-            final String directoryToZip,
+            final Path pathToCompress,
             final CompressionType compressionType,
             final BuildListener listener)
             throws IOException {
         File compressedArtifacts = null;
 
         switch (compressionType) {
-            case None:
-                // Zip it up if we don't know since zip is the default format for AWS CodePipeline
             case Zip:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".zip");
-                compressZipFile(compressedArtifacts, workspace, directoryToZip, listener);
+                compressZipFile(compressedArtifacts, pathToCompress, listener);
                 break;
             case Tar:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".tar");
-                compressTarFile(compressedArtifacts, workspace, directoryToZip, listener);
+                compressTarFile(compressedArtifacts, pathToCompress, listener);
                 break;
             case TarGz:
                 compressedArtifacts = File.createTempFile(projectName + "-", ".tar.gz");
-                compressTarGzFile(compressedArtifacts, workspace, directoryToZip, listener);
+                compressTarGzFile(compressedArtifacts, pathToCompress, listener);
                 break;
+            case None:
+                throw new IllegalArgumentException("No compression type specified.");
         }
 
         return compressedArtifacts;
@@ -80,8 +79,7 @@ public final class CompressionTools {
 
     public static void compressZipFile(
             final File temporaryZipFile,
-            final File workspace,
-            final String directoryToZip,
+            final Path pathToCompress,
             final BuildListener listener)
             throws IOException {
         try (final ZipArchiveOutputStream zipArchiveOutputStream =
@@ -90,8 +88,7 @@ public final class CompressionTools {
                      new FileOutputStream(temporaryZipFile)))) {
 
             compressArchive(
-                    workspace,
-                    directoryToZip,
+                    pathToCompress,
                     zipArchiveOutputStream,
                     new ArchiveEntryFactory(CompressionType.Zip),
                     CompressionType.Zip,
@@ -101,8 +98,7 @@ public final class CompressionTools {
 
     public static void compressTarFile(
             final File temporaryTarFile,
-            final File workspace,
-            final String directoryToZip,
+            final Path pathToCompress,
             final BuildListener listener)
             throws IOException {
         try (final TarArchiveOutputStream tarArchiveOutputStream =
@@ -111,8 +107,7 @@ public final class CompressionTools {
                      new FileOutputStream(temporaryTarFile)))) {
 
             compressArchive(
-                    workspace,
-                    directoryToZip,
+                    pathToCompress,
                     tarArchiveOutputStream,
                     new ArchiveEntryFactory(CompressionType.Tar),
                     CompressionType.Tar,
@@ -122,8 +117,7 @@ public final class CompressionTools {
 
     public static void compressTarGzFile(
             final File temporaryTarGzFile,
-            final File workspace,
-            final String directoryToZip,
+            final Path pathToCompress,
             final BuildListener listener)
             throws IOException {
         try (final TarArchiveOutputStream tarGzArchiveOutputStream =
@@ -131,9 +125,9 @@ public final class CompressionTools {
                 new BufferedOutputStream(
                 new GzipCompressorOutputStream(
                 new FileOutputStream(temporaryTarGzFile))))) {
+
             compressArchive(
-                    workspace,
-                    directoryToZip,
+                    pathToCompress,
                     tarGzArchiveOutputStream,
                     new ArchiveEntryFactory(CompressionType.TarGz),
                     CompressionType.TarGz,
@@ -142,14 +136,12 @@ public final class CompressionTools {
     }
 
     private static void compressArchive(
-            final File workspace,
-            final String directoryToZip,
+            final Path pathToCompress,
             final ArchiveOutputStream archiveOutputStream,
             final ArchiveEntryFactory archiveEntryFactory,
             final CompressionType compressionType,
             final BuildListener listener)
             throws IOException {
-        final Path pathToCompress = resolveCompressionPath(directoryToZip, workspace);
         final List<File> files = addFilesToCompress(pathToCompress, listener);
 
         LoggingHelper.log(listener, "Compressing Directory '%s' as a '%s' archive",
@@ -198,18 +190,18 @@ public final class CompressionTools {
         return files;
     }
 
-    public static Path resolveCompressionPath(
-            final String userOutputPath,
-            final File workspace)
+    public static Path resolveWorkspacePath(
+            final File workspace,
+            final String outputPath)
             throws FileNotFoundException {
         Path path = null;
 
         if (workspace != null) {
-            if (!userOutputPath.contains(workspace.getAbsolutePath())) {
-                path = Paths.get(workspace.getAbsolutePath(), userOutputPath);
+            if (!outputPath.contains(workspace.getAbsolutePath())) {
+                path = Paths.get(workspace.getAbsolutePath(), outputPath);
             }
             else {
-                path = Paths.get(userOutputPath);
+                path = Paths.get(outputPath);
             }
         }
         else {
@@ -228,10 +220,10 @@ public final class CompressionTools {
         }
 
         if (path == null) {
-            throw new FileNotFoundException("Could not resolve path for " + userOutputPath);
+            throw new FileNotFoundException("Could not resolve path for " + outputPath);
         }
 
-        path.resolve(userOutputPath);
+        path.resolve(outputPath);
 
         return path;
     }
