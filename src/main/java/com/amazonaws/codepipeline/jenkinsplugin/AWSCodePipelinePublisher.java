@@ -36,6 +36,7 @@ import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 
@@ -93,7 +94,7 @@ public class AWSCodePipelinePublisher extends Notifier {
             return false;
         }
 
-        final AWSClients aws = awsClientFactory.getAwsClient(
+        final AWSClients awsClients = awsClientFactory.getAwsClient(
                 model.getAwsAccessKey(),
                 model.getAwsSecretKey(),
                 model.getProxyHost(),
@@ -121,7 +122,7 @@ public class AWSCodePipelinePublisher extends Notifier {
 
             if (model.getJob().getData().getOutputArtifacts().size() != outputArtifacts.size()) {
                 throw new IllegalArgumentException(String.format(
-                            "Error: the number of output artifacts in the Jenkins project and in the AWS "
+                            "The number of output artifacts in the Jenkins project and in the AWS "
                             + "CodePipeline pipeline action do not match.  Please configure the output locations "
                             + "of your Jenkins project to match the AWS CodePipeline pipeline action's output artifacts. "
                             + "Number of output locations in Jenkins project: %d, number of output artifacts "
@@ -136,20 +137,23 @@ public class AWSCodePipelinePublisher extends Notifier {
             if (!outputArtifacts.isEmpty() && actionSucceeded) {
                 callPublish(action, model, listener);
             }
-        }
-        catch (final IllegalArgumentException | InterruptedException | IOException ex) {
-            error = ex.getMessage();
+        } catch (final AmazonServiceException ex) {
+            error = "Failed to upload output artifact(s): " + ex.getErrorMessage();
             LoggingHelper.log(listener, ex.getMessage());
             LoggingHelper.log(listener, ex);
             awsStatus = false;
-        }
-        finally {
+        } catch (final RuntimeException | InterruptedException | IOException ex) {
+            error = "Failed to upload output artifact(s): " + ex.getMessage();
+            LoggingHelper.log(listener, ex.getMessage());
+            LoggingHelper.log(listener, ex);
+            awsStatus = false;
+        } finally {
             PublisherTools.putJobResult(
                     awsStatus,
                     error,
                     action.getId(),
                     model.getJob().getId(),
-                    aws,
+                    awsClients.getCodePipelineClient(),
                     listener);
             cleanUp(model);
         }

@@ -153,7 +153,7 @@ public final class CompressionTools {
             throws IOException {
         final List<File> files = addFilesToCompress(pathToCompress, listener);
 
-        LoggingHelper.log(listener, "Compressing Directory '%s' as a '%s' archive",
+        LoggingHelper.log(listener, "Compressing directory '%s' as a '%s' archive",
                 pathToCompress.toString(),
                 compressionType.name());
 

@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.EncryptionKey;
 import com.amazonaws.services.codepipeline.model.EncryptionKeyType;
@@ -49,11 +49,11 @@ public final class PublisherTools {
             final String errorMessage,
             final String actionID,
             final String jobID,
-            final AWSClients aws,
+            final AWSCodePipeline codePipelineClient,
             final BuildListener listener) {
 
         if (buildSucceeded) {
-            LoggingHelper.log(listener, "Build Succeeded. PutJobSuccessResult");
+            LoggingHelper.log(listener, "Build succeeded, calling PutJobSuccessResult");
 
             final ExecutionDetails executionDetails = new ExecutionDetails();
             executionDetails.setExternalExecutionId(actionID);
@@ -62,10 +62,10 @@ public final class PublisherTools {
             final PutJobSuccessResultRequest request = new PutJobSuccessResultRequest();
             request.setJobId(jobID);
             request.setExecutionDetails(executionDetails);
-            aws.getCodePipelineClient().putJobSuccessResult(request);
+            codePipelineClient.putJobSuccessResult(request);
         }
         else {
-            LoggingHelper.log(listener, "Build Failed. PutJobFailureResult");
+            LoggingHelper.log(listener, "Build failed, calling PutJobFailureResult");
 
             final FailureDetails executionDetails = new FailureDetails();
             executionDetails.setExternalExecutionId(actionID);
@@ -75,7 +75,7 @@ public final class PublisherTools {
             final PutJobFailureResultRequest request = new PutJobFailureResultRequest();
             request.setJobId(jobID);
             request.setFailureDetails(executionDetails);
-            aws.getCodePipelineClient().putJobFailureResult(request);
+            codePipelineClient.putJobFailureResult(request);
         }
     }
 
@@ -84,14 +84,13 @@ public final class PublisherTools {
             final Artifact artifact,
             final CompressionType compressionType,
             final EncryptionKey encryptionKey,
-            final AWSSessionCredentials temporaryCredentials,
-            final AWSClients aws,
+            final AmazonS3 amazonS3,
             final BuildListener listener) throws IOException {
-        LoggingHelper.log(listener, "Uploading Artifact: " + artifact + ", file: " + file);
+
+        LoggingHelper.log(listener, "Uploading artifact: " + artifact + ", file: " + file);
 
         final String bucketName = artifact.getLocation().getS3Location().getBucketName();
         final String objectKey  = artifact.getLocation().getS3Location().getObjectKey();
-        final AmazonS3 amazonS3 = aws.getS3Client(temporaryCredentials);
         final List<PartETag> partETags = new ArrayList<>();
 
         final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(
@@ -133,7 +132,7 @@ public final class PublisherTools {
 
         amazonS3.completeMultipartUpload(completeMultipartUpload);
 
-        LoggingHelper.log(listener, "Upload Successful");
+        LoggingHelper.log(listener, "Upload successful");
     }
 
     public static ObjectMetadata createObjectMetadata(final CompressionType type) {
@@ -148,6 +147,8 @@ public final class PublisherTools {
                 break;
             case Zip:
                 objectMetadata.setContentType("application/zip");
+                break;
+            case None:
                 break;
         }
 

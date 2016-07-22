@@ -14,11 +14,11 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import org.apache.commons.lang.Validate;
+import java.util.Objects;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSSessionCredentials;
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -30,7 +30,6 @@ import com.amazonaws.services.s3.AmazonS3Client;
 public class AWSClients {
 
     private final AWSCodePipeline codePipelineClient;
-    private final ClientConfiguration clientCfg;
     private final Region region;
 
     public AWSClients(
@@ -41,7 +40,7 @@ public class AWSClients {
             final String pluginVersion) {
 
         this.region = region;
-        clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
+        final ClientConfiguration clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
 
         if (proxyHost != null && proxyPort > 0) {
             clientCfg.setProxyHost(proxyHost);
@@ -86,13 +85,13 @@ public class AWSClients {
                 pluginVersion);
     }
 
-    public AmazonS3 getS3Client(final AWSSessionCredentials sessionCredentials) {
-        Validate.notNull(sessionCredentials);
-        Validate.notNull(region);
+    public AmazonS3 getS3Client(final AWSCredentialsProvider credentialsProvider) {
+        Objects.requireNonNull(credentialsProvider, "credentialsProvider must not be null");
+        Objects.requireNonNull(region, "region must not be null");
 
-        final AmazonS3Client client = new AmazonS3Client(
-                sessionCredentials,
-                clientCfg.withSignerOverride("AWSS3V4SignerType"));
+        final AmazonS3 client = new AmazonS3Client(
+                credentialsProvider,
+                new ClientConfiguration().withSignerOverride("AWSS3V4SignerType"));
         client.setRegion(region);
         return client;
     }

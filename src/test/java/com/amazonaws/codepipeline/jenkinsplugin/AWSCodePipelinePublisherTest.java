@@ -49,7 +49,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.ActionContext;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.FailureType;
@@ -59,8 +59,10 @@ import com.amazonaws.services.codepipeline.model.PipelineContext;
 import com.amazonaws.services.codepipeline.model.PutJobFailureResultRequest;
 import com.amazonaws.services.codepipeline.model.PutJobSuccessResultRequest;
 import com.amazonaws.services.codepipeline.model.StageContext;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 
 public class AWSCodePipelinePublisherTest {
+
     private static final String REGION = "us-east-1";
     private static final String ACCESS_KEY = "1234";
     private static final String SECRET_KEY = "4321";
@@ -71,7 +73,7 @@ public class AWSCodePipelinePublisherTest {
 
     @Mock private AWSClientFactory mockFactory;
     @Mock private AWSClients mockAWS;
-    @Mock private AWSCodePipelineClient mockCodePipelineClient;
+    @Mock private AWSCodePipeline mockCodePipelineClient;
     @Mock private AbstractBuild mockBuild;
     @Mock private AbstractProject<?, ?> mockProject;
     @Mock private EnvVars vars;
@@ -83,9 +85,10 @@ public class AWSCodePipelinePublisherTest {
 
     private String jobId;
     private CodePipelineStateModel model;
+    private JSONArray outputLocations;
     private ByteArrayOutputStream outContent;
 
-    private AWSCodePipelinePublisherTestExtension publisher;
+    private AWSCodePipelinePublisherMock publisher;
 
     @Before
     public void setUp() throws Throwable {
@@ -94,13 +97,14 @@ public class AWSCodePipelinePublisherTest {
 
         final JSONObject jsonObjectOne = new JSONObject();
         jsonObjectOne.put("location", "output_1");
-        final JSONArray jsonArray = new JSONArray();
-        jsonArray.add(jsonObjectOne);
         final JSONObject jsonObjectTwo = new JSONObject();
         jsonObjectTwo.put("location", "output_2");
-        jsonArray.add(jsonObjectTwo);
 
-        publisher = new AWSCodePipelinePublisherTestExtension(jsonArray, mockFactory);
+        outputLocations = new JSONArray();
+        outputLocations.add(jsonObjectOne);
+        outputLocations.add(jsonObjectTwo);
+
+        publisher = new AWSCodePipelinePublisherMock(outputLocations, mockFactory);
 
         jobId = UUID.randomUUID().toString();
 
@@ -130,7 +134,7 @@ public class AWSCodePipelinePublisherTest {
     }
 
     @Test
-    public void performBuildSucceededSuccess() {
+    public void putsJobSuccessWhenBuildSucceeds() {
         // given
         when(mockBuild.getResult()).thenReturn(Result.SUCCESS);
 
@@ -154,13 +158,13 @@ public class AWSCodePipelinePublisherTest {
         assertEquals("Finished", request.getExecutionDetails().getSummary());
 
         final String expected1 = "[AWS CodePipeline Plugin] Publishing artifacts\n";
-        final String expected2 = "[AWS CodePipeline Plugin] Build Succeeded. PutJobSuccessResult\n";
+        final String expected2 = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult\n";
         assertContainsIgnoreCase(expected1, outContent.toString());
         assertContainsIgnoreCase(expected2, outContent.toString());
     }
 
     @Test
-    public void performBuildFailedSuccess() {
+    public void putsJobFailedWhenBuildFails() {
         // given
         when(mockBuild.getResult()).thenReturn(Result.FAILURE);
         model.setActionTypeCategory("Build");
@@ -186,13 +190,13 @@ public class AWSCodePipelinePublisherTest {
         assertEquals(FailureType.JobFailed.toString(), request.getFailureDetails().getType());
 
         final String expected1 = "[AWS CodePipeline Plugin] Publishing artifacts\n";
-        final String expected2 = "[AWS CodePipeline Plugin] Build Failed. PutJobFailureResult\n";
+        final String expected2 = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
         assertContainsIgnoreCase(expected1, outContent.toString());
         assertContainsIgnoreCase(expected2, outContent.toString());
     }
 
     @Test
-    public void performBuildWrongNumberOfBuildArtifactsSpecifiedFailure() {
+    public void putsJobFailedWhenTheNumberOfOutputArtifactsDoNotMatch() {
         // given
         when(mockBuild.getResult()).thenReturn(Result.SUCCESS);
         model.setActionTypeCategory("Test");
@@ -220,11 +224,12 @@ public class AWSCodePipelinePublisherTest {
         assertEquals(jobId, request.getJobId());
         assertEquals(BUILD_ID, request.getFailureDetails().getExternalExecutionId());
         assertEquals(FailureType.JobFailed.toString(), request.getFailureDetails().getType());
-        assertTrue(request.getFailureDetails().getMessage().startsWith("Error: the number of output artifacts in the Jenkins"));
+        assertTrue(request.getFailureDetails().getMessage().startsWith("Failed to upload output artifact(s): "
+                    + "The number of output artifacts in the Jenkins"));
 
         final String expected1 = "[AWS CodePipeline Plugin] Publishing artifacts\n";
-        final String expected2 = "[AWS CodePipeline Plugin] Build Failed. PutJobFailureResult\n";
-        final String expected3 = "[AWS CodePipeline Plugin] Error: the number of output artifacts in the Jenkins "
+        final String expected2 = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
+        final String expected3 = "[AWS CodePipeline Plugin] The number of output artifacts in the Jenkins "
                 + "project and in the AWS CodePipeline pipeline action do not match.  Please configure the output "
                 + "locations of your Jenkins project to match the AWS CodePipeline pipeline action's output "
                 + "artifacts. Number of output locations in Jenkins project: 2, number of output artifacts in AWS "
@@ -233,6 +238,40 @@ public class AWSCodePipelinePublisherTest {
         assertContainsIgnoreCase(expected1, outContent.toString());
         assertContainsIgnoreCase(expected2, outContent.toString());
         assertContainsIgnoreCase(expected3, outContent.toString());
+    }
+
+    @Test
+    public void putsJobFailedWhenArtifactUploadFails() {
+        // given
+        when(mockBuild.getResult()).thenReturn(Result.SUCCESS);
+
+        final List<Artifact> outputBuildArtifacts = new ArrayList<>();
+        outputBuildArtifacts.add(new Artifact());
+        outputBuildArtifacts.add(new Artifact());
+        when(mockJobData.getOutputArtifacts()).thenReturn(outputBuildArtifacts);
+
+        final AWSCodePipelinePublisherMockS3Exception uploadFailurePublisher
+            = new AWSCodePipelinePublisherMockS3Exception(outputLocations, mockFactory);
+
+        // when
+        assertFalse(uploadFailurePublisher.perform(mockBuild, null, null));
+
+        // then
+        final InOrder inOrder = inOrder(mockFactory, mockAWS, mockCodePipelineClient);
+        inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+        inOrder.verify(mockAWS).getCodePipelineClient();
+        inOrder.verify(mockCodePipelineClient).putJobFailureResult(putJobFailureResultRequest.capture());
+
+        final PutJobFailureResultRequest request = putJobFailureResultRequest.getValue();
+        assertEquals(jobId, request.getJobId());
+        assertEquals(BUILD_ID, request.getFailureDetails().getExternalExecutionId());
+        assertEquals("Failed to upload output artifact(s): S3 root cause", request.getFailureDetails().getMessage());
+        assertEquals(FailureType.JobFailed.toString(), request.getFailureDetails().getType());
+
+        final String expected1 = "[AWS CodePipeline Plugin] Publishing artifacts\n";
+        final String expected2 = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
+        assertContainsIgnoreCase(expected1, outContent.toString());
+        assertContainsIgnoreCase(expected2, outContent.toString());
     }
 
     @Test
@@ -251,21 +290,25 @@ public class AWSCodePipelinePublisherTest {
 
     // -----Setup and Util Methods----- //
 
-    // Test Extension to "Mock" out the callPublish method, since Mockito can't mock out final
-    // methods or classes
-    public class AWSCodePipelinePublisherTestExtension extends AWSCodePipelinePublisher {
-        public AWSCodePipelinePublisherTestExtension(
-                final JSONArray outputLocations,
-                final AWSClientFactory mockFactory) {
+    public class AWSCodePipelinePublisherMock extends AWSCodePipelinePublisher {
+        public AWSCodePipelinePublisherMock(final JSONArray outputLocations, final AWSClientFactory mockFactory) {
             super(outputLocations, mockFactory);
         }
 
         @Override
-        public void callPublish(
-                final AbstractBuild<?,?> action,
-                final CodePipelineStateModel model,
-                final BuildListener listener) {
+        public void callPublish(final AbstractBuild<?,?> action, final CodePipelineStateModel model, final BuildListener listener) {
             // Do nothing...
+        }
+    }
+
+    public class AWSCodePipelinePublisherMockS3Exception extends AWSCodePipelinePublisher {
+        public AWSCodePipelinePublisherMockS3Exception(final JSONArray outputLocations, final AWSClientFactory mockFactory) {
+            super(outputLocations, mockFactory);
+        }
+
+        @Override
+        public void callPublish(final AbstractBuild<?,?> action, final CodePipelineStateModel model, final BuildListener listener) {
+            throw new AmazonS3Exception("S3 root cause");
         }
     }
 

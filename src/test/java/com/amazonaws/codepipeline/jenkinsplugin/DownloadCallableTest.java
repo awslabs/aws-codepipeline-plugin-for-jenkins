@@ -43,8 +43,9 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.ArtifactLocation;
@@ -72,6 +73,11 @@ public class DownloadCallableTest {
     private static final String JOB_SECRET_KEY = "xKdpsXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
     private static final String JOB_SESSION_TOKEN = "1231";
 
+    private static AWSSessionCredentials JOB_CREDENTIALS = new AWSSessionCredentials()
+            .withAccessKeyId(JOB_ACCESS_KEY)
+            .withSecretAccessKey(JOB_SECRET_KEY)
+            .withSessionToken(JOB_SESSION_TOKEN);
+
     private static final String S3_BUCKET_NAME = "bucket";
     private static final String S3_OBJECT_KEY = "object.zip";
 
@@ -79,25 +85,24 @@ public class DownloadCallableTest {
 
     @Mock private AWSClientFactory clientFactory;
     @Mock private AWSClients awsClients;
-    @Mock private AWSCodePipelineClient codePipelineClient;
+    @Mock private AWSCodePipeline codePipelineClient;
     @Mock private AmazonS3 s3Client;
     @Mock private S3Object s3Object;
     @Mock private Job job;
+    @Mock private JobData jobData;
     @Mock private GetJobDetailsResult getJobDetailsResult;
     @Mock private JobDetails jobDetails;
-    @Mock private JobData originaJobData;
-    @Mock private JobData jobData;
+    @Mock private JobData getJobDetailsJobData;
     @Mock private Artifact inputArtifact;
     @Mock private ArtifactLocation artifactLocation;
     @Mock private CodePipelineStateModel model;
 
     @Captor private ArgumentCaptor<GetJobDetailsRequest> getJobDetailsRequestCaptor;
-    @Captor private ArgumentCaptor<com.amazonaws.auth.AWSSessionCredentials> sessionCredentialsCaptor;
+    @Captor private ArgumentCaptor<AWSCredentialsProvider> credentialsProviderCaptor;
 
     private File workspace;
     private ByteArrayOutputStream outContent;
 
-    private AWSSessionCredentials jobCredentials;
     private List<Artifact> inputArtifacts;
     private S3ArtifactLocation s3ArtifactLocation;
     private S3ObjectInputStream s3ObjectInputStream;
@@ -119,11 +124,6 @@ public class DownloadCallableTest {
         s3ArtifactLocation.setBucketName(S3_BUCKET_NAME);
         s3ArtifactLocation.setObjectKey(S3_OBJECT_KEY);
 
-        jobCredentials = new AWSSessionCredentials()
-            .withAccessKeyId(JOB_ACCESS_KEY)
-            .withSecretAccessKey(JOB_SECRET_KEY)
-            .withSessionToken(JOB_SESSION_TOKEN);
-
         s3ObjectInputStream = new S3ObjectInputStream(
                 new FileInputStream(getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile()),
                 null,
@@ -131,8 +131,7 @@ public class DownloadCallableTest {
 
         when(clientFactory.getAwsClient(anyString(), anyString(), anyString(), anyInt(), anyString(), anyString())).thenReturn(awsClients);
         when(awsClients.getCodePipelineClient()).thenReturn(codePipelineClient);
-        when(awsClients.getS3Client(any(com.amazonaws.auth.AWSSessionCredentials.class))).thenReturn(s3Client);
-        when(codePipelineClient.getJobDetails(any(GetJobDetailsRequest.class))).thenReturn(getJobDetailsResult);
+        when(awsClients.getS3Client(any(AWSCredentialsProvider.class))).thenReturn(s3Client);
         when(s3Client.getObject(anyString(), anyString())).thenReturn(s3Object);
         when(s3Object.getKey()).thenReturn(S3_OBJECT_KEY);
         when(s3Object.getObjectContent()).thenReturn(s3ObjectInputStream);
@@ -145,12 +144,13 @@ public class DownloadCallableTest {
         when(model.getCompressionType()).thenReturn(CompressionType.Zip);
 
         when(job.getId()).thenReturn(JOB_ID);
-        when(job.getData()).thenReturn(originaJobData);
-        when(originaJobData.getInputArtifacts()).thenReturn(inputArtifacts);
+        when(job.getData()).thenReturn(jobData);
+        when(jobData.getInputArtifacts()).thenReturn(inputArtifacts);
 
+        when(codePipelineClient.getJobDetails(any(GetJobDetailsRequest.class))).thenReturn(getJobDetailsResult);
         when(getJobDetailsResult.getJobDetails()).thenReturn(jobDetails);
-        when(jobDetails.getData()).thenReturn(jobData);
-        when(jobData.getArtifactCredentials()).thenReturn(jobCredentials);
+        when(jobDetails.getData()).thenReturn(getJobDetailsJobData);
+        when(getJobDetailsJobData.getArtifactCredentials()).thenReturn(JOB_CREDENTIALS);
 
         when(inputArtifact.getLocation()).thenReturn(artifactLocation);
         when(artifactLocation.getS3Location()).thenReturn(s3ArtifactLocation);
@@ -165,24 +165,26 @@ public class DownloadCallableTest {
     }
 
     @Test
-    public void callsGetJobDetailsToObtainFreshCredentials() throws InterruptedException {
+    public void getsArtifactFromS3() throws InterruptedException {
         // when
         downloader.invoke(workspace, null);
 
         // then
-        final InOrder inOrder = inOrder(clientFactory, awsClients, codePipelineClient, s3Client, model);
+        final InOrder inOrder = inOrder(clientFactory, awsClients, s3Client, model);
         inOrder.verify(clientFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
         inOrder.verify(awsClients).getCodePipelineClient();
-        inOrder.verify(codePipelineClient).getJobDetails(getJobDetailsRequestCaptor.capture());
-        inOrder.verify(awsClients).getS3Client(sessionCredentialsCaptor.capture());
+        inOrder.verify(awsClients).getS3Client(credentialsProviderCaptor.capture());
         inOrder.verify(s3Client).getObject(S3_BUCKET_NAME, S3_OBJECT_KEY);
         inOrder.verify(model).setCompressionType(CompressionType.Zip);
 
-        assertEquals(JOB_ID, getJobDetailsRequestCaptor.getValue().getJobId());
+        final com.amazonaws.auth.AWSSessionCredentials credentials
+            = (com.amazonaws.auth.AWSSessionCredentials) credentialsProviderCaptor.getValue().getCredentials();
+        assertEquals(JOB_ACCESS_KEY, credentials.getAWSAccessKeyId());
+        assertEquals(JOB_SECRET_KEY, credentials.getAWSSecretKey());
+        assertEquals(JOB_SESSION_TOKEN, credentials.getSessionToken());
 
-        assertEquals(JOB_ACCESS_KEY, sessionCredentialsCaptor.getValue().getAWSAccessKeyId());
-        assertEquals(JOB_SECRET_KEY, sessionCredentialsCaptor.getValue().getAWSSecretKey());
-        assertEquals(JOB_SESSION_TOKEN, sessionCredentialsCaptor.getValue().getSessionToken());
+        verify(codePipelineClient).getJobDetails(getJobDetailsRequestCaptor.capture());
+        assertEquals(JOB_ID, getJobDetailsRequestCaptor.getValue().getJobId());
     }
 
     @Test
@@ -196,7 +198,7 @@ public class DownloadCallableTest {
         // then
         assertFalse(doesWorkspaceFileExist("Dir1"));
         assertFalse(doesWorkspaceFileExist("bbb.txt"));
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Clearing Workspace", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Clearing workspace", outContent.toString());
     }
 
     @Test
@@ -210,7 +212,7 @@ public class DownloadCallableTest {
         // then
         assertTrue(doesWorkspaceFileExist("Dir1"));
         assertTrue(doesWorkspaceFileExist("bbb.txt"));
-        assertFalse(outContent.toString().toLowerCase().contains("[AWS CodePipeline Plugin] Clearing Workspace".toLowerCase()));
+        assertFalse(outContent.toString().toLowerCase().contains("[AWS CodePipeline Plugin] Clearing workspace".toLowerCase()));
     }
 
     @Test
@@ -224,7 +226,7 @@ public class DownloadCallableTest {
         assertTrue(doesWorkspaceFileExist("appspec.yml"));
         assertTrue(doesWorkspaceFileExist("src", "index.html.haml"));
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Successfully downloaded artifact from CodePipeline", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Successfully downloaded artifact from AWS CodePipeline", outContent.toString());
         assertContainsIgnoreCase("[AWS CodePipeline Plugin] Extracting", outContent.toString());
         assertContainsIgnoreCase("[AWS CodePipeline Plugin] Artifact uncompressed successfully", outContent.toString());
     }

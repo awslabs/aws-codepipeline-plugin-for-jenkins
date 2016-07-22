@@ -26,11 +26,7 @@ import java.nio.file.Paths;
 
 import org.apache.commons.io.FileUtils;
 
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
 import com.amazonaws.services.s3.AmazonS3;
@@ -76,9 +72,9 @@ public final class DownloadCallable implements FileCallable<Void> {
                 model.getRegion(),
                 pluginVersion);
 
-        // Jobs can remain in the build queue for a while, don't rely on the credentials we got from pollForJobs.
-        final AWSSessionCredentials credentials = getJobCredentials(awsClients);
-        final AmazonS3 s3Client = awsClients.getS3Client(credentials);
+        final AWSCodePipelineJobCredentialsProvider credentialsProvider = new AWSCodePipelineJobCredentialsProvider(
+                job.getId(), awsClients.getCodePipelineClient());
+        final AmazonS3 s3Client = awsClients.getS3Client(credentialsProvider);
 
         for (final Artifact artifact : job.getData().getInputArtifacts()) {
             final S3Object sessionObject = getS3Object(s3Client, artifact);
@@ -89,8 +85,7 @@ public final class DownloadCallable implements FileCallable<Void> {
 
             try {
                 downloadAndExtract(sessionObject, workspace, downloadedFileName, listener);
-            }
-            catch (final Exception ex) {
+            } catch (final Exception ex) {
                 final String error = "Failed to acquire artifacts: " + ex.getMessage();
                 LoggingHelper.log(listener, error);
                 LoggingHelper.log(listener, ex);
@@ -105,26 +100,12 @@ public final class DownloadCallable implements FileCallable<Void> {
     private void clearWorkspaceIfSelected(final File workspace, final TaskListener listener) {
         if (clearWorkspace) {
             try {
-                LoggingHelper.log(listener, "Clearing Workspace '%s' before download", workspace.getAbsolutePath());
+                LoggingHelper.log(listener, "Clearing workspace '%s' before download", workspace.getAbsolutePath());
                 FileUtils.cleanDirectory(workspace);
             } catch (final IOException ex) {
                 LoggingHelper.log(listener, "Unable to clear workspace: %s", ex.getMessage());
             }
         }
-    }
-
-    private AWSSessionCredentials getJobCredentials(final AWSClients awsClients) {
-        final GetJobDetailsRequest getJobDetailsRequest
-            = new GetJobDetailsRequest().withJobId(job.getId());
-        final GetJobDetailsResult getJobDetailsResult
-            = awsClients.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
-        final com.amazonaws.services.codepipeline.model.AWSSessionCredentials credentials
-            = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
-
-        return new BasicSessionCredentials(
-                credentials.getAccessKeyId(),
-                credentials.getSecretAccessKey(),
-                credentials.getSessionToken());
     }
 
     private S3Object getS3Object(final AmazonS3 s3Client, final Artifact artifact) {
@@ -165,7 +146,7 @@ public final class DownloadCallable implements FileCallable<Void> {
             throws IOException {
 
         streamReadAndDownloadObject(workspace, sessionObject, downloadedFileName);
-        LoggingHelper.log(listener, "Successfully downloaded artifact from CodePipeline");
+        LoggingHelper.log(listener, "Successfully downloaded artifact from AWS CodePipeline");
     }
 
     private static void streamReadAndDownloadObject(

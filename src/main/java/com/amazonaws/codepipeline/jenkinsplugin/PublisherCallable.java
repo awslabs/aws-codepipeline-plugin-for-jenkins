@@ -26,12 +26,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.Artifact;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
-import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
+import com.amazonaws.services.s3.AmazonS3;
 
 public final class PublisherCallable implements FileCallable<Void> {
 
@@ -52,11 +49,11 @@ public final class PublisherCallable implements FileCallable<Void> {
             final String pluginVersion,
             final BuildListener listener) {
 
-        this.projectName = Objects.requireNonNull(projectName);
-        this.model = Objects.requireNonNull(model);
-        this.outputs = Objects.requireNonNull(outputs);
-        this.awsClientFactory = Objects.requireNonNull(awsClientFactory);
-        this.pluginVersion = Objects.requireNonNull(pluginVersion);
+        this.projectName = Objects.requireNonNull(projectName, "projectName must not be null");
+        this.model = Objects.requireNonNull(model, "model must not be null");
+        this.outputs = Objects.requireNonNull(outputs, "outputs must not be null");
+        this.awsClientFactory = Objects.requireNonNull(awsClientFactory, "awsClientFactory must not be null");
+        this.pluginVersion = Objects.requireNonNull(pluginVersion, "pluginVersion must not be null");
         this.listener = listener;
     }
 
@@ -70,7 +67,9 @@ public final class PublisherCallable implements FileCallable<Void> {
                 model.getRegion(),
                 pluginVersion);
 
-        final AWSSessionCredentials credentials = getJobCredentials(awsClients);
+        final AWSCodePipelineJobCredentialsProvider credentialsProvider = new AWSCodePipelineJobCredentialsProvider(
+                model.getJob().getId(), awsClients.getCodePipelineClient());
+        final AmazonS3 amazonS3 = awsClients.getS3Client(credentialsProvider);
 
         final Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
 
@@ -79,34 +78,19 @@ public final class PublisherCallable implements FileCallable<Void> {
             final Path pathToUpload = CompressionTools.resolveWorkspacePath(workspace, output.getLocation());
 
             if (Files.isDirectory(pathToUpload.toRealPath())) {
-                uploadDirectory(pathToUpload, artifact, credentials, awsClients);
+                uploadDirectory(pathToUpload, artifact, amazonS3);
             } else {
-                uploadFile(pathToUpload.toFile(), artifact, CompressionType.None, credentials, awsClients);
+                uploadFile(pathToUpload.toFile(), artifact, CompressionType.None, amazonS3);
             }
         }
 
         return null;
     }
 
-    private AWSSessionCredentials getJobCredentials(final AWSClients awsClients) {
-        final GetJobDetailsRequest getJobDetailsRequest
-            = new GetJobDetailsRequest().withJobId(model.getJob().getId());
-        final GetJobDetailsResult getJobDetailsResult
-            = awsClients.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
-        final com.amazonaws.services.codepipeline.model.AWSSessionCredentials credentials
-            = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
-
-        return new BasicSessionCredentials(
-                credentials.getAccessKeyId(),
-                credentials.getSecretAccessKey(),
-                credentials.getSessionToken());
-    }
-
     private void uploadDirectory(
             final Path path,
             final Artifact artifact,
-            final AWSSessionCredentials credentials,
-            final AWSClients awsClients) throws IOException {
+            final AmazonS3 amazonS3) throws IOException {
 
         // Default to ZIP compression if we could not detect the compression type
         final CompressionType compressionType = model.getCompressionType() == CompressionType.None
@@ -120,7 +104,7 @@ public final class PublisherCallable implements FileCallable<Void> {
                 listener);
 
         try {
-            uploadFile(fileToUpload, artifact, compressionType, credentials, awsClients);
+            uploadFile(fileToUpload, artifact, compressionType, amazonS3);
         } finally {
             if (!fileToUpload.delete()) {
                 fileToUpload.deleteOnExit();
@@ -132,17 +116,9 @@ public final class PublisherCallable implements FileCallable<Void> {
             final File file,
             final Artifact artifact,
             final CompressionType compressionType,
-            final AWSSessionCredentials credentials,
-            final AWSClients awsClients) throws IOException {
+            final AmazonS3 amazonS3) throws IOException {
 
-        PublisherTools.uploadFile(
-                file,
-                artifact,
-                compressionType,
-                model.getEncryptionKey(),
-                credentials,
-                awsClients,
-                listener);
+        PublisherTools.uploadFile(file, artifact, compressionType, model.getEncryptionKey(), amazonS3, listener);
     }
 
 }

@@ -38,9 +38,8 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.ArtifactLocation;
 import com.amazonaws.services.codepipeline.model.EncryptionKey;
@@ -63,11 +62,9 @@ public class PublisherToolsTest {
 
     private ByteArrayOutputStream outContent;
 
-    @Mock private AWSClients mockAWS;
-    @Mock private AWSCodePipelineClient mockCodePipelineClient;
-    @Mock private Artifact mockArtifact;
-    @Mock private AWSSessionCredentials mockCredentials;
+    @Mock private AWSCodePipeline mockCodePipelineClient;
     @Mock private AmazonS3 mockS3Client;
+    @Mock private Artifact mockArtifact;
     @Mock private ArtifactLocation mockLocation;
     @Mock private S3ArtifactLocation s3ArtifactLocation;
     @Mock private InitiateMultipartUploadResult mockUploadResult;
@@ -80,8 +77,6 @@ public class PublisherToolsTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
-        when(mockAWS.getCodePipelineClient()).thenReturn(mockCodePipelineClient);
-        when(mockAWS.getS3Client(any(AWSSessionCredentials.class))).thenReturn(mockS3Client);
         when(mockS3Client.initiateMultipartUpload(any(InitiateMultipartUploadRequest.class)))
                 .thenReturn(mockUploadResult);
         when(mockS3Client.uploadPart(any(UploadPartRequest.class))).thenReturn(mockPartRequest);
@@ -96,14 +91,14 @@ public class PublisherToolsTest {
 
     @Test
     public void putJobResultBuildSucceededSuccess() {
-        final String message = "[AWS CodePipeline Plugin] Build Succeeded. PutJobSuccessResult\n";
+        final String message = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult\n";
 
         PublisherTools.putJobResult(
                 true, // Build Succeeded
                 "",   // Error Message
                 "0",  // ActionID
                 "1",  // Job ID
-                mockAWS,
+                mockCodePipelineClient,
                 null); // Listener
 
         verify(mockCodePipelineClient, times(1)).putJobSuccessResult(any(PutJobSuccessResultRequest.class));
@@ -112,14 +107,14 @@ public class PublisherToolsTest {
 
     @Test
     public void putJobResultBuildFailureSuccess() {
-        final String message = "[AWS CodePipeline Plugin] Build Failed. PutJobFailureResult\n";
+        final String message = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
 
         PublisherTools.putJobResult(
                 false, // Build Succeeded
                 "Generic Error",   // Error Message
                 "0",  // ActionID
                 "1",  // Job ID
-                mockAWS,
+                mockCodePipelineClient,
                 null); // Listener
 
         final ArgumentCaptor<PutJobFailureResultRequest> failureRequest =
@@ -145,8 +140,7 @@ public class PublisherToolsTest {
                 mockArtifact,
                 CompressionType.Zip,
                 null, // No custom encryption key
-                mockCredentials,
-                mockAWS,
+                mockS3Client,
                 null); // Listener
 
         final InOrder inOrder = inOrder(mockS3Client);
@@ -155,8 +149,8 @@ public class PublisherToolsTest {
         inOrder.verify(mockS3Client, times(1)).uploadPart(any(UploadPartRequest.class));
         inOrder.verify(mockS3Client, times(1)).completeMultipartUpload(any(CompleteMultipartUploadRequest.class));
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Uploading Artifact:", outContent.toString());
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload Successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Uploading artifact:", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();
@@ -186,13 +180,12 @@ public class PublisherToolsTest {
                 mockArtifact,
                 CompressionType.Zip,
                 mockEncryptionKey,
-                mockCredentials,
-                mockAWS,
+                mockS3Client,
                 null); // Listener
 
         verify(mockS3Client).initiateMultipartUpload(initiateCaptor.capture());
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload Successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();
@@ -222,13 +215,12 @@ public class PublisherToolsTest {
                 mockArtifact,
                 CompressionType.Zip,
                 mockEncryptionKey,
-                mockCredentials,
-                mockAWS,
+                mockS3Client,
                 null); // Listener
 
         verify(mockS3Client).initiateMultipartUpload(initiateCaptor.capture());
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload Successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();

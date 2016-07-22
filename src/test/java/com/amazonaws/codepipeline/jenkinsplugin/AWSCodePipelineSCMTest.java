@@ -52,7 +52,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
-import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
 import com.amazonaws.services.codepipeline.model.ActionOwner;
@@ -103,7 +103,7 @@ public class AWSCodePipelineSCMTest extends Suite {
 
         @Mock private AWSClientFactory mockFactory;
         @Mock private AWSClients mockAWSClients;
-        @Mock private AWSCodePipelineClient codePipelineClient;
+        @Mock private AWSCodePipeline codePipelineClient;
         @Mock private PollForJobsResult pollForJobsResult;
         @Mock private AcknowledgeJobResult acknowledgeJobResult;
 
