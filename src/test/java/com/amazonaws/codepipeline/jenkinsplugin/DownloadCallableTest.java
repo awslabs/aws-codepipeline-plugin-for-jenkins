@@ -15,21 +15,20 @@
 package com.amazonaws.codepipeline.jenkinsplugin;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertContainsIgnoreCase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,15 +55,11 @@ import com.amazonaws.services.codepipeline.model.JobData;
 import com.amazonaws.services.codepipeline.model.JobDetails;
 import com.amazonaws.services.codepipeline.model.S3ArtifactLocation;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.s3.model.PartETag;
-import com.amazonaws.services.s3.model.UploadPartRequest;
-import com.amazonaws.services.s3.model.UploadPartResult;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 
-public class PublisherCallableTest {
+public class DownloadCallableTest {
 
-    private static final String PROJECT_NAME = "Project";
     private static final String PLUGIN_VERSION = "aws-codepipeline:0.15";
     private static final String ACCESS_KEY = "AKIAIOSFODNN7EXAMPLE";
     private static final String SECRET_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
@@ -78,39 +73,36 @@ public class PublisherCallableTest {
     private static final String JOB_SESSION_TOKEN = "1231";
 
     private static final String S3_BUCKET_NAME = "bucket";
-    private static final String S3_OBJECT_KEY = "object";
-    private static final String UPLOAD_ID = "12312";
+    private static final String S3_OBJECT_KEY = "object.zip";
 
-    private static final String TEST_FILE = "bbb.txt";
+    private static final boolean CLEAR_WORKSPACE = true;
 
     @Mock private AWSClientFactory clientFactory;
     @Mock private AWSClients awsClients;
     @Mock private AWSCodePipelineClient codePipelineClient;
     @Mock private AmazonS3 s3Client;
+    @Mock private S3Object s3Object;
     @Mock private Job job;
     @Mock private GetJobDetailsResult getJobDetailsResult;
     @Mock private JobDetails jobDetails;
     @Mock private JobData originaJobData;
     @Mock private JobData jobData;
-    @Mock private Artifact outputArtifact;
+    @Mock private Artifact inputArtifact;
     @Mock private ArtifactLocation artifactLocation;
-    @Mock private InitiateMultipartUploadResult initiateMultipartUploadResult;
-    @Mock private UploadPartResult uploadPartResult;
+    @Mock private CodePipelineStateModel model;
 
     @Captor private ArgumentCaptor<GetJobDetailsRequest> getJobDetailsRequestCaptor;
     @Captor private ArgumentCaptor<com.amazonaws.auth.AWSSessionCredentials> sessionCredentialsCaptor;
-    @Captor private ArgumentCaptor<InitiateMultipartUploadRequest> initiateMultipartUploadRequestCaptor;
-    @Captor private ArgumentCaptor<UploadPartRequest> uploadPartRequestCaptor;
 
-    private ByteArrayOutputStream outContent;
-    private AWSSessionCredentials jobCredentials;
-    private CodePipelineStateModel model;
-    private List<OutputArtifact> jenkinsOutputs;
-    private List<Artifact> outputArtifacts;
-    private S3ArtifactLocation s3ArtifactLocation;
     private File workspace;
+    private ByteArrayOutputStream outContent;
 
-    private PublisherCallable publisher;
+    private AWSSessionCredentials jobCredentials;
+    private List<Artifact> inputArtifacts;
+    private S3ArtifactLocation s3ArtifactLocation;
+    private S3ObjectInputStream s3ObjectInputStream;
+
+    private DownloadCallable downloader;
 
     @Before
     public void setUp() throws IOException {
@@ -120,24 +112,8 @@ public class PublisherCallableTest {
         workspace = Paths.get(TestUtils.TEST_DIR).toFile();
         outContent = TestUtils.setOutputStream();
 
-        try (final PrintWriter writer = new PrintWriter(new File(workspace, TEST_FILE))) {
-            writer.println("Some content");
-        }
-
-        model = new CodePipelineStateModel();
-        model.setJob(job);
-        model.setCompressionType(CompressionType.Zip);
-        model.setAwsAccessKey(ACCESS_KEY);
-        model.setAwsSecretKey(SECRET_KEY);
-        model.setProxyHost(PROXY_HOST);
-        model.setProxyPort(PROXY_PORT);
-        model.setRegion(REGION);
-
-        jenkinsOutputs = new ArrayList<>();
-        jenkinsOutputs.add(new OutputArtifact(""));
-
-        outputArtifacts = new ArrayList<>();
-        outputArtifacts.add(outputArtifact);
+        inputArtifacts = new ArrayList<>();
+        inputArtifacts.add(inputArtifact);
 
         s3ArtifactLocation = new S3ArtifactLocation();
         s3ArtifactLocation.setBucketName(S3_BUCKET_NAME);
@@ -148,130 +124,113 @@ public class PublisherCallableTest {
             .withSecretAccessKey(JOB_SECRET_KEY)
             .withSessionToken(JOB_SESSION_TOKEN);
 
+        s3ObjectInputStream = new S3ObjectInputStream(
+                new FileInputStream(getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile()),
+                null,
+                false);
+
         when(clientFactory.getAwsClient(anyString(), anyString(), anyString(), anyInt(), anyString(), anyString())).thenReturn(awsClients);
         when(awsClients.getCodePipelineClient()).thenReturn(codePipelineClient);
         when(awsClients.getS3Client(any(com.amazonaws.auth.AWSSessionCredentials.class))).thenReturn(s3Client);
         when(codePipelineClient.getJobDetails(any(GetJobDetailsRequest.class))).thenReturn(getJobDetailsResult);
+        when(s3Client.getObject(anyString(), anyString())).thenReturn(s3Object);
+        when(s3Object.getKey()).thenReturn(S3_OBJECT_KEY);
+        when(s3Object.getObjectContent()).thenReturn(s3ObjectInputStream);
+
+        when(model.getAwsAccessKey()).thenReturn(ACCESS_KEY);
+        when(model.getAwsSecretKey()).thenReturn(SECRET_KEY);
+        when(model.getProxyHost()).thenReturn(PROXY_HOST);
+        when(model.getProxyPort()).thenReturn(PROXY_PORT);
+        when(model.getRegion()).thenReturn(REGION);
+        when(model.getCompressionType()).thenReturn(CompressionType.Zip);
 
         when(job.getId()).thenReturn(JOB_ID);
         when(job.getData()).thenReturn(originaJobData);
-        when(originaJobData.getOutputArtifacts()).thenReturn(outputArtifacts);
+        when(originaJobData.getInputArtifacts()).thenReturn(inputArtifacts);
+
         when(getJobDetailsResult.getJobDetails()).thenReturn(jobDetails);
         when(jobDetails.getData()).thenReturn(jobData);
         when(jobData.getArtifactCredentials()).thenReturn(jobCredentials);
 
-        when(outputArtifact.getLocation()).thenReturn(artifactLocation);
+        when(inputArtifact.getLocation()).thenReturn(artifactLocation);
         when(artifactLocation.getS3Location()).thenReturn(s3ArtifactLocation);
-        when(s3Client.initiateMultipartUpload(any(InitiateMultipartUploadRequest.class))).thenReturn(initiateMultipartUploadResult);
-        when(initiateMultipartUploadResult.getUploadId()).thenReturn(UPLOAD_ID);
-        when(s3Client.uploadPart(any(UploadPartRequest.class))).thenReturn(uploadPartResult);
-        when(uploadPartResult.getPartETag()).thenReturn(new PartETag(1, "asdf"));
 
-        publisher = new PublisherCallable(PROJECT_NAME, model, jenkinsOutputs, clientFactory, PLUGIN_VERSION, null);
+        downloader = new DownloadCallable(CLEAR_WORKSPACE, job, model, clientFactory, PLUGIN_VERSION, null);
     }
 
     @After
     public void tearDown() throws IOException {
         TestUtils.cleanUpTestingFolders();
+        s3ObjectInputStream.close();
     }
 
     @Test
-    public void callsGetJobDetailsToObtainFreshCredentials() throws IOException {
+    public void callsGetJobDetailsToObtainFreshCredentials() throws InterruptedException {
         // when
-        publisher.invoke(workspace, null);
+        downloader.invoke(workspace, null);
 
         // then
-        final InOrder inOrder = inOrder(clientFactory, awsClients, codePipelineClient, s3Client);
+        final InOrder inOrder = inOrder(clientFactory, awsClients, codePipelineClient, s3Client, model);
         inOrder.verify(clientFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
         inOrder.verify(awsClients).getCodePipelineClient();
         inOrder.verify(codePipelineClient).getJobDetails(getJobDetailsRequestCaptor.capture());
         inOrder.verify(awsClients).getS3Client(sessionCredentialsCaptor.capture());
-        inOrder.verify(s3Client).initiateMultipartUpload(initiateMultipartUploadRequestCaptor.capture());
-        inOrder.verify(s3Client).uploadPart(uploadPartRequestCaptor.capture());
+        inOrder.verify(s3Client).getObject(S3_BUCKET_NAME, S3_OBJECT_KEY);
+        inOrder.verify(model).setCompressionType(CompressionType.Zip);
 
         assertEquals(JOB_ID, getJobDetailsRequestCaptor.getValue().getJobId());
 
         assertEquals(JOB_ACCESS_KEY, sessionCredentialsCaptor.getValue().getAWSAccessKeyId());
         assertEquals(JOB_SECRET_KEY, sessionCredentialsCaptor.getValue().getAWSSecretKey());
         assertEquals(JOB_SESSION_TOKEN, sessionCredentialsCaptor.getValue().getSessionToken());
-
-        final InitiateMultipartUploadRequest initRequest = initiateMultipartUploadRequestCaptor.getValue();
-        assertEquals(S3_BUCKET_NAME, initRequest.getBucketName());
-        assertEquals(S3_OBJECT_KEY, initRequest.getKey());
-
-        final UploadPartRequest uploadRequest = uploadPartRequestCaptor.getValue();
-        assertEquals(S3_BUCKET_NAME, uploadRequest.getBucketName());
-        assertEquals(S3_OBJECT_KEY, uploadRequest.getKey());
-        assertEquals(UPLOAD_ID, uploadRequest.getUploadId());
-
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Uploading Artifact:", outContent.toString());
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload Successful\n", outContent.toString());
     }
 
     @Test
-    public void forDirectoriesUsesZipAsDefaultCompressionType() throws IOException {
+    public void clearsWorkspace() throws InterruptedException {
         // given
-        model.setCompressionType(CompressionType.None);
+        downloader = new DownloadCallable(true, job, model, clientFactory, PLUGIN_VERSION, null);
 
         // when
-        publisher.invoke(workspace, null);
+        downloader.invoke(workspace, null);
 
         // then
-        verify(s3Client).initiateMultipartUpload(initiateMultipartUploadRequestCaptor.capture());
-        verify(s3Client).uploadPart(uploadPartRequestCaptor.capture());
-        assertEquals("application/zip", initiateMultipartUploadRequestCaptor.getValue().getObjectMetadata().getContentType());
-        assertTrue(uploadPartRequestCaptor.getValue().getFile().getName().endsWith(".zip"));
+        assertFalse(doesWorkspaceFileExist("Dir1"));
+        assertFalse(doesWorkspaceFileExist("bbb.txt"));
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Clearing Workspace", outContent.toString());
     }
 
     @Test
-    public void forDirecotriesUsesCompressionTypeSpecifiedInModel() throws IOException {
+    public void doesNotClearWorkspace() throws InterruptedException {
         // given
-        model.setCompressionType(CompressionType.Tar);
+        downloader = new DownloadCallable(false, job, model, clientFactory, PLUGIN_VERSION, null);
 
         // when
-        publisher.invoke(workspace, null);
+        downloader.invoke(workspace, null);
 
         // then
-        verify(s3Client).initiateMultipartUpload(initiateMultipartUploadRequestCaptor.capture());
-        verify(s3Client).uploadPart(uploadPartRequestCaptor.capture());
-        assertEquals("application/tar", initiateMultipartUploadRequestCaptor.getValue().getObjectMetadata().getContentType());
-        assertTrue(uploadPartRequestCaptor.getValue().getFile().getName().endsWith(".tar"));
+        assertTrue(doesWorkspaceFileExist("Dir1"));
+        assertTrue(doesWorkspaceFileExist("bbb.txt"));
+        assertFalse(outContent.toString().toLowerCase().contains("[AWS CodePipeline Plugin] Clearing Workspace".toLowerCase()));
     }
 
     @Test
-    public void doesNotUseCompressionWhenUploadingNormalFiles() throws IOException {
-        // given
-        jenkinsOutputs.clear();
-        jenkinsOutputs.add(new OutputArtifact("bbb.txt"));
-
+    public void downloadsAndExtractsInputArchive() throws InterruptedException {
         // when
-        publisher.invoke(workspace, null);
+        downloader.invoke(workspace, null);
 
         // then
-        verify(s3Client).initiateMultipartUpload(initiateMultipartUploadRequestCaptor.capture());
-        verify(s3Client).uploadPart(uploadPartRequestCaptor.capture());
-        assertNull(initiateMultipartUploadRequestCaptor.getValue().getObjectMetadata().getContentType());
-        assertEquals("bbb.txt", uploadPartRequestCaptor.getValue().getFile().getName());
+        verify(model).setCompressionType(CompressionType.Zip);
+
+        assertTrue(doesWorkspaceFileExist("appspec.yml"));
+        assertTrue(doesWorkspaceFileExist("src", "index.html.haml"));
+
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Successfully downloaded artifact from CodePipeline", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Extracting", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Artifact uncompressed successfully", outContent.toString());
     }
 
-    //@Test
-    public void canUploadMultipleOutputArtifacts() throws IOException {
-        // given
-        jenkinsOutputs.clear();
-        jenkinsOutputs.add(new OutputArtifact(TEST_FILE));
-        jenkinsOutputs.add(new OutputArtifact("Dir1"));
-        jenkinsOutputs.add(new OutputArtifact("Dir2"));
-
-        outputArtifacts.clear();
-        outputArtifacts.add(outputArtifact);
-        outputArtifacts.add(outputArtifact);
-        outputArtifacts.add(outputArtifact);
-
-        // when
-        publisher.invoke(workspace, null);
-
-        // then
-        verify(s3Client, times(3)).initiateMultipartUpload(any(InitiateMultipartUploadRequest.class));
+    private boolean doesWorkspaceFileExist(final String... path) {
+        return Paths.get(TestUtils.TEST_DIR, path).toFile().exists();
     }
 
 }

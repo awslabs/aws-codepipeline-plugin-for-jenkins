@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.EncryptionKey;
@@ -84,7 +84,7 @@ public final class PublisherTools {
             final Artifact artifact,
             final CompressionType compressionType,
             final EncryptionKey encryptionKey,
-            final BasicSessionCredentials temporaryCredentials,
+            final AWSSessionCredentials temporaryCredentials,
             final AWSClients aws,
             final BuildListener listener) throws IOException {
         LoggingHelper.log(listener, "Uploading Artifact: " + artifact + ", file: " + file);

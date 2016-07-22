@@ -22,13 +22,14 @@ import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 
 public class AWSClients {
 
-    private final AWSCodePipelineClient codePipelineClient;
+    private final AWSCodePipeline codePipelineClient;
     private final ClientConfiguration clientCfg;
     private final Region region;
 
@@ -96,7 +97,7 @@ public class AWSClients {
         return client;
     }
 
-    public AWSCodePipelineClient getCodePipelineClient() {
+    public AWSCodePipeline getCodePipelineClient() {
         return codePipelineClient;
     }
 

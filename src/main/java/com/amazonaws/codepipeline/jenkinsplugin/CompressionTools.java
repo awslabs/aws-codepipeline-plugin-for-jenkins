@@ -57,21 +57,30 @@ public final class CompressionTools {
             throws IOException {
         File compressedArtifacts = null;
 
-        switch (compressionType) {
-            case Zip:
-                compressedArtifacts = File.createTempFile(projectName + "-", ".zip");
-                compressZipFile(compressedArtifacts, pathToCompress, listener);
-                break;
-            case Tar:
-                compressedArtifacts = File.createTempFile(projectName + "-", ".tar");
-                compressTarFile(compressedArtifacts, pathToCompress, listener);
-                break;
-            case TarGz:
-                compressedArtifacts = File.createTempFile(projectName + "-", ".tar.gz");
-                compressTarGzFile(compressedArtifacts, pathToCompress, listener);
-                break;
-            case None:
-                throw new IllegalArgumentException("No compression type specified.");
+        try {
+            switch (compressionType) {
+                case Zip:
+                    compressedArtifacts = File.createTempFile(projectName + "-", ".zip");
+                    compressZipFile(compressedArtifacts, pathToCompress, listener);
+                    break;
+                case Tar:
+                    compressedArtifacts = File.createTempFile(projectName + "-", ".tar");
+                    compressTarFile(compressedArtifacts, pathToCompress, listener);
+                    break;
+                case TarGz:
+                    compressedArtifacts = File.createTempFile(projectName + "-", ".tar.gz");
+                    compressTarGzFile(compressedArtifacts, pathToCompress, listener);
+                    break;
+                case None:
+                    throw new IllegalArgumentException("No compression type specified.");
+            }
+        } catch (final IOException e) {
+            if (compressedArtifacts != null) {
+                if (!compressedArtifacts.delete()) {
+                    compressedArtifacts.deleteOnExit();
+                }
+            }
+            throw e;
         }
 
         return compressedArtifacts;

@@ -26,9 +26,8 @@ import java.nio.file.Paths;
 
 import org.apache.commons.io.FileUtils;
 
+import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.BasicSessionCredentials;
-import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.services.codepipeline.model.AWSSessionCredentials;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.GetJobDetailsRequest;
 import com.amazonaws.services.codepipeline.model.GetJobDetailsResult;
@@ -69,12 +68,22 @@ public final class DownloadCallable implements FileCallable<Void> {
     public Void invoke(final File workspace, final VirtualChannel channel) throws InterruptedException {
         clearWorkspaceIfSelected(workspace, listener);
 
-        for (final Artifact artifact : job.getData().getInputArtifacts()) {
-            final S3Object sessionObject = getS3Object(artifact, awsClientFactory);
+        final AWSClients awsClients = awsClientFactory.getAwsClient(
+                model.getAwsAccessKey(),
+                model.getAwsSecretKey(),
+                model.getProxyHost(),
+                model.getProxyPort(),
+                model.getRegion(),
+                pluginVersion);
 
-            final CompressionType compressionType =
-                    ExtractionTools.getCompressionType(sessionObject, listener);
-            model.setCompressionType(compressionType);
+        // Jobs can remain in the build queue for a while, don't rely on the credentials we got from pollForJobs.
+        final AWSSessionCredentials credentials = getJobCredentials(awsClients);
+        final AmazonS3 s3Client = awsClients.getS3Client(credentials);
+
+        for (final Artifact artifact : job.getData().getInputArtifacts()) {
+            final S3Object sessionObject = getS3Object(s3Client, artifact);
+
+            model.setCompressionType(ExtractionTools.getCompressionType(sessionObject, listener));
 
             final String downloadedFileName = Paths.get(sessionObject.getKey()).getFileName().toString();
 
@@ -93,7 +102,7 @@ public final class DownloadCallable implements FileCallable<Void> {
         return null;
     }
 
-    public void clearWorkspaceIfSelected(final File workspace, final TaskListener listener) {
+    private void clearWorkspaceIfSelected(final File workspace, final TaskListener listener) {
         if (clearWorkspace) {
             try {
                 LoggingHelper.log(listener, "Clearing Workspace '%s' before download", workspace.getAbsolutePath());
@@ -104,57 +113,43 @@ public final class DownloadCallable implements FileCallable<Void> {
         }
     }
 
-    public S3Object getS3Object(final Artifact artifact, final AWSClientFactory awsClientFactory) {
-        final AWSClients aws = awsClientFactory.getAwsClient(
-                model.getAwsAccessKey(),
-                model.getAwsSecretKey(),
-                model.getProxyHost(),
-                model.getProxyPort(),
-                model.getRegion(),
-                pluginVersion);
+    private AWSSessionCredentials getJobCredentials(final AWSClients awsClients) {
+        final GetJobDetailsRequest getJobDetailsRequest
+            = new GetJobDetailsRequest().withJobId(job.getId());
+        final GetJobDetailsResult getJobDetailsResult
+            = awsClients.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
+        final com.amazonaws.services.codepipeline.model.AWSSessionCredentials credentials
+            = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
 
-        // Jobs can remain in the build queue for a while, don't rely on the credentials we got from pollForJobs.
-        final GetJobDetailsRequest getJobDetailsRequest = new GetJobDetailsRequest()
-                .withJobId(job.getId());
-        final GetJobDetailsResult getJobDetailsResult = aws.getCodePipelineClient().getJobDetails(getJobDetailsRequest);
-        final AWSSessionCredentials sessionCredentials = getJobDetailsResult.getJobDetails().getData().getArtifactCredentials();
-
-        final BasicSessionCredentials basicCredentials = new BasicSessionCredentials(
-                sessionCredentials.getAccessKeyId(),
-                sessionCredentials.getSecretAccessKey(),
-                sessionCredentials.getSessionToken());
-
-        final AmazonS3 client = aws.getS3Client(basicCredentials);
-        final S3ArtifactLocation artifactLocation = artifact.getLocation().getS3Location();
-
-        return client.getObject(artifactLocation.getBucketName(), artifactLocation.getObjectKey());
+        return new BasicSessionCredentials(
+                credentials.getAccessKeyId(),
+                credentials.getSecretAccessKey(),
+                credentials.getSessionToken());
     }
 
-    public void downloadAndExtract(
+    private S3Object getS3Object(final AmazonS3 s3Client, final Artifact artifact) {
+        final S3ArtifactLocation artifactLocation = artifact.getLocation().getS3Location();
+        return s3Client.getObject(artifactLocation.getBucketName(), artifactLocation.getObjectKey());
+    }
+
+    private void downloadAndExtract(
             final S3Object sessionObject,
             final File workspace,
             final String downloadedFileName,
-            final TaskListener listener)
-            throws Exception {
-        downloadArtifacts(
-                sessionObject,
-                workspace,
-                downloadedFileName,
-                listener);
+            final TaskListener listener) throws IOException {
+
+        downloadArtifacts(sessionObject, workspace, downloadedFileName, listener);
 
         final File fullFilePath = new File(workspace, downloadedFileName);
 
         try {
-            LoggingHelper.log(listener, "File downloaded successfully");
             ExtractionTools.decompressFile(fullFilePath, workspace, model.getCompressionType(), listener);
-            LoggingHelper.log(listener, "File uncompressed successfully");
-        }
-        finally {
+            LoggingHelper.log(listener, "Artifact uncompressed successfully");
+        } finally {
             if (fullFilePath != null) {
                 try {
                     ExtractionTools.deleteTemporaryCompressedFile(fullFilePath);
-                }
-                catch (final IOException ex) {
+                } catch (final IOException ex) {
                     LoggingHelper.log(listener, "Could not delete temporary file: %s", ex.getMessage());
                     LoggingHelper.log(listener, ex);
                 }
@@ -168,19 +163,16 @@ public final class DownloadCallable implements FileCallable<Void> {
             final String downloadedFileName,
             final TaskListener listener)
             throws IOException {
-        streamReadAndDownloadObject(
-                workspace,
-                sessionObject,
-                downloadedFileName);
 
-        LoggingHelper.log(listener, "Successfully downloaded the artifacts from CodePipeline");
+        streamReadAndDownloadObject(workspace, sessionObject, downloadedFileName);
+        LoggingHelper.log(listener, "Successfully downloaded artifact from CodePipeline");
     }
 
     private static void streamReadAndDownloadObject(
-            final File         workspace,
-            final S3Object     sessionObject,
-            final String       downloadedFileName)
-            throws IOException {
+            final File workspace,
+            final S3Object sessionObject,
+            final String downloadedFileName) throws IOException {
+
         final File outputFile = new File(workspace, downloadedFileName);
 
         try (final S3ObjectInputStream objectContents = sessionObject.getObjectContent();

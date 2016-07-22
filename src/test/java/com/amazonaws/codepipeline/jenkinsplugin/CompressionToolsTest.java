@@ -38,6 +38,7 @@ public class CompressionToolsTest {
     private CodePipelineStateModel model;
     private String projectName;
     private Path testDir;
+    private File compressedFile;
 
     @Mock
     private AbstractBuild mockBuild;
@@ -60,6 +61,12 @@ public class CompressionToolsTest {
     @After
     public void tearDown() throws IOException {
         TestUtils.cleanUpTestingFolders();
+
+        if (compressedFile != null) {
+            if (!compressedFile.delete()) {
+                compressedFile.deleteOnExit();
+            }
+        }
     }
 
     @Test
@@ -67,7 +74,7 @@ public class CompressionToolsTest {
         projectName = "ZipProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.Zip);
 
-        final File compressedFile = CompressionTools.compressFile(
+        compressedFile = CompressionTools.compressFile(
                 projectName,
                 testDir,
                 model.getCompressionType(),
@@ -83,7 +90,7 @@ public class CompressionToolsTest {
         projectName = "TarProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.Tar);
 
-        final File compressedFile = CompressionTools.compressFile(
+        compressedFile = CompressionTools.compressFile(
                 projectName,
                 testDir,
                 model.getCompressionType(),
@@ -99,7 +106,7 @@ public class CompressionToolsTest {
         projectName = "TarGzProject";
         model.setCompressionType(CodePipelineStateModel.CompressionType.TarGz);
 
-        final File compressedFile = CompressionTools.compressFile(
+        compressedFile = CompressionTools.compressFile(
                 projectName,
                 testDir,
                 model.getCompressionType(),

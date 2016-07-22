@@ -113,7 +113,6 @@ public class AWSCodePipelineSCMTest extends Suite {
         private AWSCodePipelineSCMTestExtension scm;
         private Job job;
         private ByteArrayOutputStream outContent;
-        private java.io.PrintStream originalOut;
 
         @Before
         public void setUp() throws IOException, InterruptedException {
@@ -141,7 +140,6 @@ public class AWSCodePipelineSCMTest extends Suite {
                     ACTION_TYPE.getProvider(),
                     ACTION_TYPE.getVersion());
 
-            originalOut = System.out;
             outContent = TestUtils.setOutputStream();
 
             when(codePipelineClient.pollForJobs(any(PollForJobsRequest.class))).thenReturn(pollForJobsResult);
@@ -183,8 +181,6 @@ public class AWSCodePipelineSCMTest extends Suite {
             assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(ACTION_TYPE, null));
 
             final String expectedMessage = "[AWS CodePipeline Plugin] No jobs found.\n";
-            originalOut.println(expectedMessage);
-            originalOut.println(outContent.toString());
             assertEqualsIgnoreCase(expectedMessage, outContent.toString());
 
             verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));
@@ -201,8 +197,6 @@ public class AWSCodePipelineSCMTest extends Suite {
                     "[AWS CodePipeline Plugin] Received job with ID: %s\n"
                     + "[AWS CodePipeline Plugin] Failed to acknowledge job with ID: %s\n",
                     jobId, jobId);
-            originalOut.println(expectedMessage);
-            originalOut.println(outContent.toString());
             assertEqualsIgnoreCase(expectedMessage, outContent.toString());
 
             verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));

@@ -44,7 +44,7 @@ import net.sf.json.JSONObject;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
+import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
 import com.amazonaws.services.codepipeline.model.ActionOwner;
@@ -220,7 +220,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                 region,
                 JenkinsMetadata.getPluginVersion());
 
-        final AWSCodePipelineClient codePipelineClient = aws.getCodePipelineClient();
+        final AWSCodePipeline codePipelineClient = aws.getCodePipelineClient();
 
         // Wait a bit before polling, so not all Jenkins jobs poll at the same time
         final long jitter = (long) RANDOM.nextInt(15 * 1000);

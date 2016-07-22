@@ -14,7 +14,6 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import static org.apache.commons.io.FileUtils.deleteDirectory;
 import hudson.model.TaskListener;
 
 import java.io.File;
@@ -33,6 +32,7 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.io.FileUtils;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.s3.model.S3Object;
@@ -41,31 +41,21 @@ public final class ExtractionTools {
 
     private ExtractionTools() {}
 
-    private static void extractZip(
-            final File source,
-            final File destination)
-            throws IOException {
+    private static void extractZip(final File source, final File destination) throws IOException {
         try (final ZipFile zipFile = new ZipFile(source, StandardCharsets.UTF_8.name(), true)) {
             extractZipFile(destination, zipFile);
         }
     }
 
-    private static void extractTar(
-            final File source,
-            final File destination)
-            throws IOException {
-        try (final ArchiveInputStream tarArchiveInputStream = new TarArchiveInputStream(
-                    new FileInputStream(source))) {
+    private static void extractTar(final File source, final File destination) throws IOException {
+        try (final ArchiveInputStream tarArchiveInputStream = new TarArchiveInputStream(new FileInputStream(source))) {
             extractArchive(destination, tarArchiveInputStream);
         }
     }
 
-    private static void extractTarGz(
-            final File source,
-            final File destination)
-            throws IOException {
-        try (final ArchiveInputStream tarGzArchiveInputStream = new TarArchiveInputStream(
-                    new GzipCompressorInputStream(new FileInputStream(source)))) {
+    private static void extractTarGz(final File source, final File destination) throws IOException {
+        try (final ArchiveInputStream tarGzArchiveInputStream
+                = new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(source)))) {
             extractArchive(destination, tarGzArchiveInputStream);
         }
     }
@@ -102,8 +92,7 @@ public final class ExtractionTools {
 
             if (entry.isDirectory()) {
                 destinationFile.mkdir();
-            }
-            else {
+            } else {
                 destinationFile.getParentFile().mkdirs();
                 try (final OutputStream fileOutputStream = new FileOutputStream(destinationFile)) {
                     final byte[] buffer = new byte[BUFFER_SIZE];
@@ -119,15 +108,12 @@ public final class ExtractionTools {
         }
     }
 
-    public static void deleteTemporaryCompressedFile(
-            final File fileToDelete)
-            throws IOException {
+    public static void deleteTemporaryCompressedFile(final File fileToDelete) throws IOException {
         if (fileToDelete.isDirectory()) {
-            deleteDirectory(fileToDelete);
-        }
-        else {
+            FileUtils.deleteDirectory(fileToDelete);
+        } else {
             if (!fileToDelete.delete()) {
-                throw new IOException("Couldn't delete directories");
+                fileToDelete.deleteOnExit();
             }
         }
     }
@@ -138,11 +124,9 @@ public final class ExtractionTools {
 
         if (endsWithLowerCase(key, ".zip")) {
             compressionType = CompressionType.Zip;
-        }
-        else if (endsWithLowerCase(key, ".tar.gz")) {
+        } else if (endsWithLowerCase(key, ".tar.gz")) {
             compressionType = CompressionType.TarGz;
-        }
-        else if (endsWithLowerCase(key, ".tar")) {
+        } else if (endsWithLowerCase(key, ".tar")) {
             compressionType = CompressionType.Tar;
         }
 
@@ -151,12 +135,10 @@ public final class ExtractionTools {
 
             if ("application/zip".equalsIgnoreCase(contentType)) {
                 compressionType = CompressionType.Zip;
-            }
-            else if ("application/gzip".equalsIgnoreCase(contentType)
+            } else if ("application/gzip".equalsIgnoreCase(contentType)
                     || "application/x-gzip".equalsIgnoreCase(contentType)) {
                 compressionType = CompressionType.TarGz;
-            }
-            else if ("application/tar".equalsIgnoreCase(contentType)
+            } else if ("application/tar".equalsIgnoreCase(contentType)
                     || "application/x-tar".equalsIgnoreCase(contentType)) {
                 compressionType = CompressionType.Tar;
             }
@@ -175,6 +157,7 @@ public final class ExtractionTools {
             final File destination,
             final CompressionType compressionType,
             final TaskListener listener) throws IOException {
+
         LoggingHelper.log(listener, "Extracting '%s' to '%s'",
                 compressedFile.getAbsolutePath(), destination.getAbsolutePath());
 

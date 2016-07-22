@@ -38,7 +38,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import com.amazonaws.auth.BasicSessionCredentials;
+import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.AWSCodePipelineClient;
 import com.amazonaws.services.codepipeline.model.Artifact;
@@ -66,7 +66,7 @@ public class PublisherToolsTest {
     @Mock private AWSClients mockAWS;
     @Mock private AWSCodePipelineClient mockCodePipelineClient;
     @Mock private Artifact mockArtifact;
-    @Mock private BasicSessionCredentials mockCredentials;
+    @Mock private AWSSessionCredentials mockCredentials;
     @Mock private AmazonS3 mockS3Client;
     @Mock private ArtifactLocation mockLocation;
     @Mock private S3ArtifactLocation s3ArtifactLocation;
@@ -81,7 +81,7 @@ public class PublisherToolsTest {
         MockitoAnnotations.initMocks(this);
 
         when(mockAWS.getCodePipelineClient()).thenReturn(mockCodePipelineClient);
-        when(mockAWS.getS3Client(any(BasicSessionCredentials.class))).thenReturn(mockS3Client);
+        when(mockAWS.getS3Client(any(AWSSessionCredentials.class))).thenReturn(mockS3Client);
         when(mockS3Client.initiateMultipartUpload(any(InitiateMultipartUploadRequest.class)))
                 .thenReturn(mockUploadResult);
         when(mockS3Client.uploadPart(any(UploadPartRequest.class))).thenReturn(mockPartRequest);
