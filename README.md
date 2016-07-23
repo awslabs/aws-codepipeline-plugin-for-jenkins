@@ -5,6 +5,11 @@ post-build (publisher) step for your Jenkins project.  It will poll for AWS
 CodePipeline jobs, and download input artifacts.  When a build succeeds, it
 will compress the build artifacts and upload them to AWS CodePipeline.
 
+### Build Status
+
+[![Build
+Status](https://jenkins.ci.cloudbees.com/buildStatus/icon?job=plugins/aws-codepipeline-plugin)](https://jenkins.ci.cloudbees.com/job/plugins/job/aws-codepipeline-plugin/)
+
 ## Set up
 
 1. Install the `AWS CodePipeline` plugin.
