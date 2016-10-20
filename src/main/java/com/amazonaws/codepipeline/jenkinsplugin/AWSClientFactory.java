@@ -19,7 +19,7 @@ import java.io.Serializable;
 import org.apache.commons.lang.StringUtils;
 
 import com.amazonaws.regions.Region;
-import com.amazonaws.regions.RegionUtils;
+import com.amazonaws.regions.Regions;
 
 public class AWSClientFactory implements Serializable {
 
@@ -33,7 +33,7 @@ public class AWSClientFactory implements Serializable {
             final String region,
             final String pluginVersion) {
 
-        final Region awsRegion = RegionUtils.getRegion(region);
+        final Region awsRegion = Region.getRegion(Regions.fromName(region));
         final AWSClients aws;
 
         if (StringUtils.isEmpty(awsAccessKey) && StringUtils.isEmpty(awsSecretKey)) {
