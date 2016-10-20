@@ -94,6 +94,13 @@ public class AWSCodePipelinePublisher extends Notifier {
             return false;
         }
 
+        if (model.isSkipPutJobResult()) {
+            LoggingHelper.log(
+                    listener,
+                    String.format("Skipping PutJobFailureResult call for the job with ID %s", model.getJob().getId()));
+            return false;
+        }
+
         final AWSClients awsClients = awsClientFactory.getAwsClient(
                 model.getAwsAccessKey(),
                 model.getAwsSecretKey(),

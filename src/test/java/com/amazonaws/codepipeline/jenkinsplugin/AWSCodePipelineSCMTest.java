@@ -15,23 +15,27 @@
 package com.amazonaws.codepipeline.jenkinsplugin;
 
 import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertContainsIgnoreCase;
-import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertEqualsIgnoreCase;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
+import hudson.AbortException;
 import hudson.EnvVars;
+import hudson.FilePath;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.scm.PollingResult;
 import hudson.util.FormValidation;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +55,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
@@ -58,6 +63,7 @@ import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
 import com.amazonaws.services.codepipeline.model.ActionOwner;
 import com.amazonaws.services.codepipeline.model.ActionTypeId;
 import com.amazonaws.services.codepipeline.model.Artifact;
+import com.amazonaws.services.codepipeline.model.InvalidNonceException;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.JobData;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
@@ -66,6 +72,7 @@ import com.amazonaws.services.codepipeline.model.PollForJobsResult;
 @RunWith(AWSCodePipelineSCMTest.class)
 @Suite.SuiteClasses({
         AWSCodePipelineSCMTest.PollForJobsTests.class,
+        AWSCodePipelineSCMTest.CheckoutTests.class,
         AWSCodePipelineSCMTest.SCMDescriptorTests.class
 })
 public class AWSCodePipelineSCMTest extends Suite {
@@ -94,25 +101,23 @@ public class AWSCodePipelineSCMTest extends Suite {
         }
     }
 
-    public static class PollForJobsTests extends TestBase {
-        private static final ActionTypeId ACTION_TYPE = new ActionTypeId()
+    private static class PollingTestBase extends TestBase {
+        protected static final ActionTypeId ACTION_TYPE = new ActionTypeId()
                 .withCategory("Build")
                 .withOwner(ActionOwner.Custom)
                 .withProvider("Jenkins-Build")
                 .withVersion("1");
 
-        @Mock private AWSClientFactory mockFactory;
-        @Mock private AWSClients mockAWSClients;
-        @Mock private AWSCodePipeline codePipelineClient;
-        @Mock private PollForJobsResult pollForJobsResult;
-        @Mock private AcknowledgeJobResult acknowledgeJobResult;
+        @Mock protected AWSClientFactory mockFactory;
+        @Mock protected AWSClients mockAWSClients;
+        @Mock protected AWSCodePipeline codePipelineClient;
+        @Mock protected PollForJobsResult pollForJobsResult;
 
-        @Captor private ArgumentCaptor<PollForJobsRequest> pollForJobsRequest;
-        @Captor private ArgumentCaptor<AcknowledgeJobRequest> acknowledgeJobRequest;
+        @Captor protected ArgumentCaptor<PollForJobsRequest> pollForJobsRequest;
 
-        private AWSCodePipelineSCMTestExtension scm;
-        private Job job;
-        private ByteArrayOutputStream outContent;
+        protected AWSCodePipelineSCM scm;
+        protected Job job;
+        protected ByteArrayOutputStream outContent;
 
         @Before
         public void setUp() throws IOException, InterruptedException {
@@ -125,10 +130,12 @@ public class AWSCodePipelineSCMTest extends Suite {
 
             job = new Job()
                     .withId(jobId)
-                    .withData(new JobData().withOutputArtifacts(new ArrayList<Artifact>()))
+                    .withData(new JobData()
+                            .withOutputArtifacts(new ArrayList<Artifact>())
+                            .withInputArtifacts(new ArrayList<Artifact>()))
                     .withNonce(jobNonce);
 
-            scm = new AWSCodePipelineSCMTestExtension(
+            scm = new AWSCodePipelineSCM(
                     PROJECT_NAME,
                     CLEAR_WORKSPACE,
                     REGION,
@@ -138,90 +145,155 @@ public class AWSCodePipelineSCMTest extends Suite {
                     String.valueOf(PROXY_PORT),
                     ACTION_TYPE.getCategory(),
                     ACTION_TYPE.getProvider(),
-                    ACTION_TYPE.getVersion());
+                    ACTION_TYPE.getVersion(),
+                    mockFactory);
 
             outContent = TestUtils.setOutputStream();
 
             when(codePipelineClient.pollForJobs(any(PollForJobsRequest.class))).thenReturn(pollForJobsResult);
-            when(codePipelineClient.acknowledgeJob(any(AcknowledgeJobRequest.class))).thenReturn(acknowledgeJobResult);
             when(pollForJobsResult.getJobs()).thenReturn(Collections.singletonList(job));
-            when(acknowledgeJobResult.getStatus()).thenReturn("InProgress");
+        }
+    }
+
+    public static class PollForJobsTests extends PollingTestBase {
+
+        @Before
+        public void setUp() throws IOException, InterruptedException {
+            super.setUp();
         }
 
         @Test
-        public void returnsBuildNowWhenThereIsAJob() throws InterruptedException {
+        public void returnsBuildNowWhenThereIsAJob() throws InterruptedException, IOException {
+            // when
             assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
 
-            final String expectedMessage = String.format(
-                    "[AWS CodePipeline Plugin] Received job with ID: %s\n"
-                    + "[AWS CodePipeline Plugin] Acknowledged job with ID: %s",
-                    jobId, jobId);
+            // then
+            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n", jobId);
+
             assertContainsIgnoreCase(expectedMessage, outContent.toString());
 
             final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
             inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
             inOrder.verify(mockAWSClients).getCodePipelineClient();
             inOrder.verify(codePipelineClient).pollForJobs(pollForJobsRequest.capture());
-            inOrder.verify(codePipelineClient).acknowledgeJob(acknowledgeJobRequest.capture());
 
             final PollForJobsRequest pollRequest = pollForJobsRequest.getValue();
             assertEquals(ACTION_TYPE, pollRequest.getActionTypeId());
             assertEquals(1, pollRequest.getMaxBatchSize().intValue());
             assertEquals(1, pollRequest.getQueryParam().size());
             assertEquals(PROJECT_NAME, pollRequest.getQueryParam().get("ProjectName"));
+        }
+
+        @Test
+        public void returnsNoChangesWhenThereAreNoJobs() throws InterruptedException, IOException {
+            // given
+            when(pollForJobsResult.getJobs()).thenReturn(new ArrayList<Job>());
+
+            // when
+            assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(ACTION_TYPE, null));
+
+            // then
+            assertContainsIgnoreCase("No jobs found.", outContent.toString());
+
+            final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
+            inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+            inOrder.verify(mockAWSClients).getCodePipelineClient();
+            inOrder.verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));
+        }
+    }
+
+    public static class CheckoutTests extends PollingTestBase {
+        private FilePath workspacePath;
+
+        @Mock
+        private AcknowledgeJobResult acknowledgeJobResult;
+        @Captor
+        private ArgumentCaptor<AcknowledgeJobRequest> acknowledgeJobRequest;
+
+        @Before
+        public void setUp() throws IOException, InterruptedException {
+            super.setUp();
+
+            final File tempFile = File.createTempFile("workspacePath", "tmp");
+            tempFile.deleteOnExit();
+            workspacePath = new FilePath(tempFile);
+
+            when(codePipelineClient.acknowledgeJob(any(AcknowledgeJobRequest.class))).thenReturn(acknowledgeJobResult);
+            when(acknowledgeJobResult.getStatus()).thenReturn("InProgress");
+        }
+
+        @Test
+        public void acknowledgesJobAndDownloadsInputArtifacts() throws InterruptedException, IOException {
+            // given
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
+
+            // when
+            assertTrue(scm.checkout(null, null, workspacePath, null, null));
+
+            // then
+            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
+                    + "[AWS CodePipeline Plugin] Job '%1$s' received\n"
+                    + "[AWS CodePipeline Plugin] Acknowledged job with ID: %1$s\n", jobId);
+
+            assertContainsIgnoreCase(expectedMessage, outContent.toString());
+
+            final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
+            inOrder.verify(codePipelineClient).acknowledgeJob(acknowledgeJobRequest.capture());
+            // verifying that we are initializing s3 client to download artifacts.
+            inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+            inOrder.verify(mockAWSClients).getS3Client(isA(AWSCredentialsProvider.class));
 
             assertEquals(jobId, acknowledgeJobRequest.getValue().getJobId());
             assertEquals(jobNonce, acknowledgeJobRequest.getValue().getNonce());
         }
 
         @Test
-        public void returnsNoChangesWhenThereAreNoJobs() throws InterruptedException {
-            when(pollForJobsResult.getJobs()).thenReturn(new ArrayList<Job>());
+        public void doesNotDownloadArtifactsWhenAcknowledgeJobDoesNotReturnInProgressJob() throws InterruptedException, IOException {
+            // given
+            when(acknowledgeJobResult.getStatus()).thenReturn("Created");
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
 
-            assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(ACTION_TYPE, null));
+            // when
+            try {
+                scm.checkout(null, null, workspacePath, null, null);
+                fail("Should not reach here.");
+            } catch (final AbortException e) {
+                // then
+                final String exceptionMessage = String.format("Failed to acknowledge job with ID: %s", jobId);
+                assertContainsIgnoreCase(exceptionMessage, e.getMessage());
+                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
+                        + "[AWS CodePipeline Plugin] Job '%1$s' received\n", jobId);
+                assertContainsIgnoreCase(outMessage, outContent.toString());
 
-            final String expectedMessage = "[AWS CodePipeline Plugin] No jobs found.\n";
-            assertEqualsIgnoreCase(expectedMessage, outContent.toString());
-
-            verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));
-            verify(codePipelineClient, never()).acknowledgeJob(any(AcknowledgeJobRequest.class));
+                final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
+                inOrder.verify(codePipelineClient).acknowledgeJob(any(AcknowledgeJobRequest.class));
+                // verifying s3 client not being invoked for downloading artifacts.
+                verify(mockAWSClients, never()).getS3Client(isA(AWSCredentialsProvider.class));
+            }
         }
 
         @Test
-        public void returnsNoChangesWhenAcknowledgeJobDoesNotReturnAnInProgressJobStatus() throws InterruptedException {
-            when(acknowledgeJobResult.getStatus()).thenReturn("Created");
+        public void doesNotDownloadArtifactsWhenAcknowledgeJobThrowsInvalidNonceException() throws InterruptedException, IOException {
+            // given
+            when(codePipelineClient.acknowledgeJob(any(AcknowledgeJobRequest.class)))
+                    .thenThrow(new InvalidNonceException("job was already acknowledged"));
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
 
-            assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(ACTION_TYPE, null));
+            // when
+            try {
+                scm.checkout(null, null, workspacePath, null, null);
+            } catch (final AbortException e) {
+                // then
+                final String exceptionMessage = String.format("Job with ID %s was already acknowledged", jobId);
+                assertContainsIgnoreCase(exceptionMessage, e.getMessage());
+                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
+                        + "[AWS CodePipeline Plugin] Job '%1$s' received\n", jobId);
+                assertContainsIgnoreCase(outMessage, outContent.toString());
 
-            final String expectedMessage = String.format(
-                    "[AWS CodePipeline Plugin] Received job with ID: %s\n"
-                    + "[AWS CodePipeline Plugin] Failed to acknowledge job with ID: %s\n",
-                    jobId, jobId);
-            assertEqualsIgnoreCase(expectedMessage, outContent.toString());
-
-            verify(codePipelineClient).pollForJobs(any(PollForJobsRequest.class));
-            verify(codePipelineClient).acknowledgeJob(any(AcknowledgeJobRequest.class));
-        }
-
-        // Test Extension to "Mock" out the callPublish method, since Mockito can't mock out final methods or classes
-        public class AWSCodePipelineSCMTestExtension extends AWSCodePipelineSCM {
-            public AWSCodePipelineSCMTestExtension(
-                    final String projectName,
-                    final boolean clear,
-                    final String region,
-                    final String awsAccessKey,
-                    final String awsSecretKey,
-                    final String proxyHost,
-                    final String proxyPort,
-                    final String category,
-                    final String provider,
-                    final String version) {
-                super(projectName, clear, region, awsAccessKey, awsSecretKey, proxyHost, proxyPort,
-                        category, provider, version, mockFactory);
-            }
-
-            @Override
-            public void initializeModel() {
+                final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
+                inOrder.verify(codePipelineClient).acknowledgeJob(any(AcknowledgeJobRequest.class));
+                // verifying s3 client not being invoked for downloading artifacts.
+                verify(mockAWSClients, never()).getS3Client(isA(AWSCredentialsProvider.class));
             }
         }
     }

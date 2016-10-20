@@ -64,6 +64,7 @@ public class CodePipelineStateModel implements Serializable {
     private String proxyHost;
     private int proxyPort;
     private String region;
+    private boolean skipPutJobResult;
 
     public CodePipelineStateModel() {
         compressionType    = CompressionType.None;
@@ -128,6 +129,14 @@ public class CodePipelineStateModel implements Serializable {
 
     public Job getJob() {
         return job;
+    }
+
+    public boolean isSkipPutJobResult() {
+        return skipPutJobResult;
+    }
+
+    public void setSkipPutJobResult(boolean skipPutJobResult) {
+        this.skipPutJobResult = skipPutJobResult;
     }
 
     public EncryptionKey getEncryptionKey() {

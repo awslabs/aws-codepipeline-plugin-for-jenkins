@@ -23,8 +23,8 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
-
 import hudson.EnvVars;
 import hudson.model.BuildListener;
 import hudson.model.Result;
@@ -193,6 +193,32 @@ public class AWSCodePipelinePublisherTest {
         final String expected2 = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
         assertContainsIgnoreCase(expected1, outContent.toString());
         assertContainsIgnoreCase(expected2, outContent.toString());
+    }
+
+    @Test
+    public void skipsPutJobResultWhenSkipPutJobFailureFlagIsSetInModel() {
+        // given
+        when(mockBuild.getResult()).thenReturn(Result.FAILURE);
+        model.setActionTypeCategory("Build");
+        model.setSkipPutJobResult(true);
+
+        final List<Artifact> outputBuildArtifacts = new ArrayList<>();
+        outputBuildArtifacts.add(new Artifact());
+        outputBuildArtifacts.add(new Artifact());
+        when(mockJobData.getOutputArtifacts()).thenReturn(outputBuildArtifacts);
+
+        // when
+        assertFalse(publisher.perform(mockBuild, null, null));
+
+        // then
+        final InOrder inOrder = inOrder(mockFactory, mockAWS, mockCodePipelineClient);
+        inOrder.verify(mockFactory, never()).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+        inOrder.verify(mockAWS, never()).getCodePipelineClient();
+
+        final String expected = String.format(
+                "[AWS CodePipeline Plugin] Skipping PutJobFailureResult call for the job with ID %s",
+                model.getJob().getId());
+        assertContainsIgnoreCase(expected, outContent.toString());
     }
 
     @Test

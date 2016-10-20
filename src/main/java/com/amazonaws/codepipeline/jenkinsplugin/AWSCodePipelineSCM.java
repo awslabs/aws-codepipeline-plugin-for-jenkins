@@ -14,6 +14,7 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
+import hudson.AbortException;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -35,11 +36,11 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
+import net.sf.json.JSONObject;
+
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
-
-import net.sf.json.JSONObject;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
@@ -49,6 +50,7 @@ import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
 import com.amazonaws.services.codepipeline.model.ActionOwner;
 import com.amazonaws.services.codepipeline.model.ActionTypeId;
+import com.amazonaws.services.codepipeline.model.InvalidNonceException;
 import com.amazonaws.services.codepipeline.model.Job;
 import com.amazonaws.services.codepipeline.model.JobStatus;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
@@ -196,8 +198,24 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             // This is here for if a customer presses BuildNow, it will still attempt a build.
             return true;
         }
-
         LoggingHelper.log(listener, "Job '%s' received", model.getJob().getId());
+
+        try {
+            final AcknowledgeJobResult acknowledgeJobResult = getCodePipelineClient().acknowledgeJob(new AcknowledgeJobRequest()
+                    .withJobId(model.getJob().getId())
+                    .withNonce(model.getJob().getNonce()));
+
+            if (!acknowledgeJobResult.getStatus().equals(JobStatus.InProgress.name())) {
+                model.setSkipPutJobResult(true);
+                throw new AbortException(String.format("Failed to acknowledge job with ID: %s", job.getId()));
+            }
+        } catch (final InvalidNonceException e) {
+            model.setSkipPutJobResult(true);
+            throw new AbortException(String.format("Job with ID %s was already acknowledged", job.getId()));
+        }
+
+        LoggingHelper.log(listener, "Acknowledged job with ID: %s", model.getJob().getId());
+
         workspacePath.act(new DownloadCallable(
                     clearWorkspace,
                     model.getJob(),
@@ -212,21 +230,11 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) throws InterruptedException {
         validate(taskListener);
 
-        final AWSClients aws = awsClientFactory.getAwsClient(
-                awsAccessKey,
-                awsSecretKey,
-                proxyHost,
-                proxyPort,
-                region,
-                JenkinsMetadata.getPluginVersion());
-
-        final AWSCodePipeline codePipelineClient = aws.getCodePipelineClient();
-
         // Wait a bit before polling, so not all Jenkins jobs poll at the same time
         final long jitter = (long) RANDOM.nextInt(15 * 1000);
         Thread.sleep(jitter);
 
-        final PollForJobsResult result = codePipelineClient.pollForJobs(new PollForJobsRequest()
+        final PollForJobsResult result = getCodePipelineClient().pollForJobs(new PollForJobsRequest()
                 .withActionTypeId(actionType)
                 .withMaxBatchSize(1)
                 .withQueryParam(Collections.singletonMap("ProjectName", projectName)));
@@ -239,16 +247,6 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         job = result.getJobs().get(0);
         LoggingHelper.log(taskListener, "Received job with ID: %s", job.getId());
 
-        final AcknowledgeJobResult acknowledgeJobResult = codePipelineClient.acknowledgeJob(new AcknowledgeJobRequest()
-                .withJobId(job.getId())
-                .withNonce(job.getNonce()));
-
-        if (!acknowledgeJobResult.getStatus().equals(JobStatus.InProgress.name())) {
-            LoggingHelper.log(taskListener, "Failed to acknowledge job with ID: %s", job.getId());
-            return PollingResult.NO_CHANGES;
-        }
-
-        LoggingHelper.log(taskListener, "Acknowledged job with ID: %s", job.getId());
         return PollingResult.BUILD_NOW;
     }
 
@@ -293,6 +291,19 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return actionTypeVersion;
     }
 
+    public void initializeModel() {
+        final CodePipelineStateModel model = new CodePipelineStateModel();
+        model.setActionTypeCategory(actionTypeCategory);
+        model.setAwsAccessKey(awsAccessKey);
+        model.setAwsSecretKey(awsSecretKey);
+        model.setCompressionType(CompressionType.None);
+        model.setJob(job);
+        model.setProxyHost(proxyHost);
+        model.setProxyPort(proxyPort);
+        model.setRegion(region);
+        CodePipelineStateService.setModel(model);
+    }
+
     private void validate(final TaskListener listener) {
         Validation.validatePlugin(
                 awsAccessKey,
@@ -305,17 +316,15 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                 listener);
     }
 
-    public void initializeModel() {
-        final CodePipelineStateModel model = new CodePipelineStateModel();
-        model.setActionTypeCategory(actionTypeCategory);
-        model.setAwsAccessKey(awsAccessKey);
-        model.setAwsSecretKey(awsSecretKey);
-        model.setCompressionType(CompressionType.None);
-        model.setJob(job);
-        model.setProxyHost(proxyHost);
-        model.setProxyPort(proxyPort);
-        model.setRegion(region);
-        CodePipelineStateService.setModel(model);
+    private AWSCodePipeline getCodePipelineClient() {
+        return awsClientFactory.getAwsClient(
+                awsAccessKey,
+                awsSecretKey,
+                proxyHost,
+                proxyPort,
+                region,
+                JenkinsMetadata.getPluginVersion())
+                .getCodePipelineClient();
     }
 
     /**
