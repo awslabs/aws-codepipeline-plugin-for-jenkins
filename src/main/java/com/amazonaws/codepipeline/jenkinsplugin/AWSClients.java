@@ -30,34 +30,36 @@ import com.amazonaws.services.s3.AmazonS3Client;
 public class AWSClients {
 
     private final AWSCodePipeline codePipelineClient;
+    private final ClientConfiguration clientCfg;
     private final Region region;
+
+    private final S3ClientFactory s3ClientFactory;
 
     public AWSClients(
             final Region region,
             final AWSCredentials credentials,
             final String proxyHost,
             final int proxyPort,
-            final String pluginVersion) {
+            final String pluginVersion,
+            final CodePipelineClientFactory codePipelineClientFactory,
+            final S3ClientFactory s3ClientFactory) {
 
-        this.region = region;
-        final ClientConfiguration clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
+        if (region == null) {
+            this.region = Region.getRegion(Regions.US_EAST_1);
+        } else {
+            this.region = region;
+        }
+        this.clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
 
         if (proxyHost != null && proxyPort > 0) {
             clientCfg.setProxyHost(proxyHost);
             clientCfg.setProxyPort(proxyPort);
         }
 
-        if (credentials == null) {
-            this.codePipelineClient = new AWSCodePipelineClient(clientCfg);
-        } else {
-            this.codePipelineClient = new AWSCodePipelineClient(credentials, clientCfg);
-        }
+        this.codePipelineClient = codePipelineClientFactory.getAWSCodePipelineClient(credentials, clientCfg);
+        this.codePipelineClient.setRegion(this.region);
 
-        if (region == null) {
-            this.codePipelineClient.setRegion(Region.getRegion(Regions.US_EAST_1));
-        } else {
-            this.codePipelineClient.setRegion(region);
-        }
+        this.s3ClientFactory = s3ClientFactory;
     }
 
     public static AWSClients fromDefaultCredentialChain(
@@ -66,7 +68,7 @@ public class AWSClients {
             final int proxyPort,
             final String pluginVersion) {
 
-        return new AWSClients(region, null, proxyHost, proxyPort, pluginVersion);
+        return new AWSClients(region, null, proxyHost, proxyPort, pluginVersion, new CodePipelineClientFactory(), new S3ClientFactory());
     }
 
     public static AWSClients fromBasicCredentials(
@@ -82,22 +84,42 @@ public class AWSClients {
                 new BasicAWSCredentials(awsAccessKey, awsSecretKey),
                 proxyHost,
                 proxyPort,
-                pluginVersion);
+                pluginVersion,
+                new CodePipelineClientFactory(),
+                new S3ClientFactory());
     }
 
     public AmazonS3 getS3Client(final AWSCredentialsProvider credentialsProvider) {
         Objects.requireNonNull(credentialsProvider, "credentialsProvider must not be null");
         Objects.requireNonNull(region, "region must not be null");
 
-        final AmazonS3 client = new AmazonS3Client(
-                credentialsProvider,
-                new ClientConfiguration().withSignerOverride("AWSS3V4SignerType"));
+        final AmazonS3 client = s3ClientFactory.getS3Client(credentialsProvider, new ClientConfiguration(clientCfg).withSignerOverride("AWSS3V4SignerType"));
         client.setRegion(region);
         return client;
     }
 
     public AWSCodePipeline getCodePipelineClient() {
         return codePipelineClient;
+    }
+
+    public static class CodePipelineClientFactory {
+
+        public AWSCodePipeline getAWSCodePipelineClient(final AWSCredentials credentials, final ClientConfiguration clientCfg) {
+            if (credentials == null) {
+                return new AWSCodePipelineClient(clientCfg);
+            } else {
+                return new AWSCodePipelineClient(credentials, clientCfg);
+            }
+        }
+
+    }
+
+    public static class S3ClientFactory {
+
+        public AmazonS3 getS3Client(final AWSCredentialsProvider credentialsProvider, final ClientConfiguration clientCfg) {
+            return new AmazonS3Client(credentialsProvider, clientCfg);
+        }
+
     }
 
 }
