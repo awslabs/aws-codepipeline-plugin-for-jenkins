@@ -65,7 +65,8 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         Regions.EU_CENTRAL_1,
         Regions.EU_WEST_1,
         Regions.AP_SOUTHEAST_1,
-        Regions.AP_SOUTHEAST_2
+        Regions.AP_SOUTHEAST_2,
+        Regions.SA_EAST_1
     };
 
     public static final CategoryType[] ACTION_TYPE = {
