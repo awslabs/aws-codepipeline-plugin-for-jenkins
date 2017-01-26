@@ -26,7 +26,7 @@ public class Validation {
     // These come from AWS CodePipeline specifications
     public static final int MAX_VERSION_LENGTH = 9;
     public static final int MAX_PROVIDER_LENGTH = 25;
-    public static final int MAX_PROJECT_NAME_LENGTH = 20;
+    public static final int MAX_PROJECT_NAME_LENGTH = 50;
     public static final int MAX_ARTIFACTS = 5;
 
     public static String sanitize(final String string) {
