@@ -14,8 +14,6 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.model.Failure;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +24,8 @@ import org.junit.rules.ExpectedException;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.services.codepipeline.model.Artifact;
+
+import hudson.model.Failure;
 
 public class ValidationTest {
     @Rule
@@ -82,11 +82,12 @@ public class ValidationTest {
 
     @Test
     public void projectNameAllBadCharactersFailure() {
-        final String error = "Project Name on AWSCodePipeline's must only contain Alphanumeric characters and '-' or '_'";
         final char[] badChars = {'@', '!', '#', '$', '%', '^', '&', '*', '(', ')', '{', '}',
                 '[', ']', ',', '.', '<', '>' , '?', '/', '\\', '"', '\'', ':', '+', '='};
 
         for (final char c : badChars) {
+            final String error = "Invalid project name: " + c + ". The AWS CodePipeline Jenkins plugin supports project names with alphanumeric characters and the special characters - (minus sign) " +
+                    "and _ (underscore).";
             thrown.expect(IllegalArgumentException.class);
             thrown.expectMessage(error);
             Validation.validateProjectName("" + c, null);
@@ -142,8 +143,8 @@ public class ValidationTest {
 
     @Test
     public void validatePluginNoCredentialsFailure() {
-        final String error = "Plugin is not setup properly, you may be missing fields in the configuration\n" +
-                "Credentials are not valid";
+        final String error = "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified." + System.lineSeparator() +
+                "The AWS credentials provided are not valid.";
 
         thrown.expect(Failure.class);
         thrown.expectMessage(error);
@@ -161,8 +162,8 @@ public class ValidationTest {
 
     @Test
     public void validatePluginNoRegionFailure() {
-        final String error = "Plugin is not setup properly, you may be missing fields in the configuration";
-        final String regionError = "The Region is not set to a valid region";
+        final String error = "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified." + System.lineSeparator();
+        final String regionError =  "The specified AWS region is not valid.";
 
         thrown.expect(Failure.class);
         thrown.expectMessage(error);
@@ -181,7 +182,7 @@ public class ValidationTest {
 
     @Test
     public void validatePluginInvalidActionTypeProviderFailure() {
-        final String error = "Plugin is not setup properly, you may be missing fields in the configuration\n";
+        final String error = "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified." + System.lineSeparator();
 
         thrown.expect(Failure.class);
         thrown.expectMessage(error);
@@ -202,7 +203,7 @@ public class ValidationTest {
 
     @Test
     public void validatePluginInvalidActionTypeCategoryFailure() {
-        final String error = "Plugin is not setup properly, you may be missing fields in the configuration\n";
+        final String error = "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified." + System.lineSeparator();
 
         thrown.expect(Failure.class);
         thrown.expectMessage(error);
@@ -223,7 +224,7 @@ public class ValidationTest {
 
     @Test
     public void validatePluginInvalidActionTypeVersionFailure() {
-        final String error = "Plugin is not setup properly, you may be missing fields in the configuration\n";
+        final String error = "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified." + System.lineSeparator();
 
         thrown.expect(Failure.class);
         thrown.expectMessage(error);
@@ -245,9 +246,9 @@ public class ValidationTest {
     @Test
     public void validatePluginAllFieldsMissingFailure() {
         thrown.expect(Failure.class);
-        thrown.expectMessage("Plugin is not setup properly, you may be missing fields in the configuration");
-        thrown.expectMessage("The Region is not set to a valid region");
-        thrown.expectMessage("Credentials are not valid");
+        thrown.expectMessage("AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified.");
+        thrown.expectMessage("The specified AWS region is not valid.");
+        thrown.expectMessage("The AWS credentials provided are not valid.");
 
         Validation.validatePlugin(
                 null,

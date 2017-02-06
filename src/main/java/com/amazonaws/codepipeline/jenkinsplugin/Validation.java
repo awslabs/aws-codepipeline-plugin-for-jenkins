@@ -17,11 +17,12 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 import static org.apache.commons.lang.StringEscapeUtils.escapeHtml;
 import static org.apache.commons.lang.StringEscapeUtils.escapeSql;
 
-import hudson.model.TaskListener;
-
 import java.util.List;
 
+import hudson.model.TaskListener;
+
 public class Validation {
+    private static final String  LINE_SEPARATOR = System.lineSeparator();
 
     // These come from AWS CodePipeline specifications
     public static final int MAX_VERSION_LENGTH = 9;
@@ -39,15 +40,15 @@ public class Validation {
             final TaskListener listener) throws IllegalArgumentException {
 
         if (projectName.length() > MAX_PROJECT_NAME_LENGTH) {
-            final String error = "Project Name is too long, AWSCodePipeline Project Names must be less than "
-                    + MAX_PROJECT_NAME_LENGTH + " characters, you entered " + projectName.length() + " characters";
+            final String error = "Invalid project name: " + projectName + ". The AWS CodePipeline Jenkins plugin supports project names with a maximum of " + MAX_PROJECT_NAME_LENGTH + " characters.";
             LoggingHelper.log(listener, error);
             throw new IllegalArgumentException(error);
         }
 
         for (final Character c : projectName.toCharArray()) {
             if (!Character.isLetterOrDigit(c) && c != '_' && c != '-') {
-                final String error = "Project Name on AWSCodePipeline's must only contain Alphanumeric characters and '-' or '_'";
+                final String error = "Invalid project name: " + projectName + ". The AWS CodePipeline Jenkins plugin supports project names with alphanumeric characters and the special " +
+                        "characters - (minus sign) and _ (underscore).";
                 LoggingHelper.log(listener, error);
 
                 throw new IllegalArgumentException(error);
@@ -73,35 +74,36 @@ public class Validation {
             final TaskListener taskListener) {
         boolean canThrow = false;
 
-        String allErrors = "\nPlugin is not setup properly, you may be missing fields in the " +
-                "configuration";
+        String allErrors = LINE_SEPARATOR + "AWS CodePipeline Jenkins plugin setup error. One or more required configuration parameters have not been specified.";
 
         if (!actionTypeIsValid(actionTypeCategory, actionTypeProvider, actionTypeVersion)) {
             final String error = "ActionType: " +
                     "Category: " + actionTypeCategory +
                     ", Provider: " + actionTypeProvider +
-                    ", Version: " + actionTypeVersion;
+                    ", Version: " + actionTypeVersion +
+                    ".";
 
             LoggingHelper.log(taskListener, error);
-            allErrors += "\n" + error;
+            allErrors += LINE_SEPARATOR + error;
             canThrow = true;
         }
 
         if (!credentialsAreValid(awsAccessKey, awsSecretKey)) {
-            final String error = "Credentials are not valid";
-            allErrors += "\n" + error;
+            final String error = "The AWS credentials provided are not valid.";
+            allErrors += LINE_SEPARATOR + error;
             canThrow = true;
         }
 
         if (!regionIsValid(region)) {
-            final String error = "The Region is not set to a valid region";
-            allErrors += "\n" + error;
+            final String error = "The specified AWS region is not valid.";
+            allErrors += LINE_SEPARATOR + error;
             canThrow = true;
         }
 
         if (!projectNameIsValid(projectName)) {
-            final String error = "Project Name is not valid, Project Name: " + projectName;
-            allErrors += "\n" + error;
+            final String error = "Invalid project name: " + projectName + ". The AWS CodePipeline Jenkins plugin supports project names with a maximum of " + MAX_PROJECT_NAME_LENGTH +
+                    " characters. Allowed characters include alphanumeric characters and the special characters - (minus sign) and _ (underscore).";
+            allErrors += LINE_SEPARATOR + error;
 
             LoggingHelper.log(taskListener, error);
             canThrow = true;
