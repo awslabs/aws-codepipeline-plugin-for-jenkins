@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>aws-codepipeline</artifactId>
-  <version>0.28-SNAPSHOT</version>
+  <version>0.29-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin</name>
@@ -63,7 +63,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk</artifactId>
-      <version>1.11.44</version>
+      <version>1.11.145</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
