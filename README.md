@@ -7,8 +7,7 @@ will compress the build artifacts and upload them to AWS CodePipeline.
 
 ### Build Status
 
-[![Build
-Status](https://jenkins.ci.cloudbees.com/buildStatus/icon?job=plugins/aws-codepipeline-plugin)](https://jenkins.ci.cloudbees.com/job/plugins/job/aws-codepipeline-plugin/)
+[![Build Status](https://ci.jenkins.io/buildStatus/icon?job=Plugins/aws-codepipeline-plugin/master)](https://ci.jenkins.io/job/Plugins/job/aws-codepipeline-plugin/job/master/)
 
 ## Set up
 
