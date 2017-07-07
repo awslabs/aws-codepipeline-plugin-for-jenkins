@@ -14,24 +14,13 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.Extension;
-import hudson.Launcher;
-import hudson.model.BuildListener;
-import hudson.model.Result;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.tasks.BuildStepDescriptor;
-import hudson.tasks.BuildStepMonitor;
-import hudson.tasks.Notifier;
-import hudson.tasks.Publisher;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
@@ -39,6 +28,20 @@ import org.kohsuke.stapler.StaplerRequest;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
+import com.amazonaws.services.codepipeline.model.Artifact;
+
+import hudson.Extension;
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.Result;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.BuildStepMonitor;
+import hudson.tasks.Notifier;
+import hudson.tasks.Publisher;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 
 /**
  * The AWS CodePipeline Publisher compresses the artifacts and uploads them to S3.
@@ -46,6 +49,8 @@ import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.Compressi
  * It only works together with the CodePipeline SCM plugin to get access to the Job Data, Credentials and Proxy.
  */
 public class AWSCodePipelinePublisher extends Notifier {
+    private static final String JELLY_KEY_LOCATION = "location";
+    private static final String JELLY_KEY_ARTIFACT_NAME = "artifactName";
 
     @Deprecated // renamed to outputArtifacts
     private final transient List<OutputTuple> buildOutputs;
@@ -60,11 +65,14 @@ public class AWSCodePipelinePublisher extends Notifier {
 
         if (outputLocations != null) {
             for (final Object outputLocation : outputLocations) {
-                // See AWSCodePipelinePublisher/config.jelly
                 final JSONObject jsonObject = (JSONObject) outputLocation;
-                if (jsonObject.has("location")) {
-                    final String locationValue = jsonObject.getString("location");
-                    this.outputArtifacts.add(new OutputArtifact(Validation.sanitize(locationValue.trim())));
+                if (jsonObject.has(JELLY_KEY_LOCATION) && jsonObject.has(JELLY_KEY_ARTIFACT_NAME)) {
+                    final String locationValue = jsonObject.getString(JELLY_KEY_LOCATION);
+                    final String artifactName = jsonObject.getString(JELLY_KEY_ARTIFACT_NAME);
+                    this.outputArtifacts.add(new OutputArtifact(
+                            Validation.sanitize(locationValue.trim()),
+                            Validation.sanitize(artifactName.trim())
+                    ));
                 }
             }
         }
@@ -127,18 +135,26 @@ public class AWSCodePipelinePublisher extends Notifier {
         try {
             LoggingHelper.log(listener, "Publishing artifacts");
 
-            if (model.getJob().getData().getOutputArtifacts().size() != outputArtifacts.size()) {
+            final List<Artifact> artifactsFromModel = model.getJob().getData().getOutputArtifacts();
+
+            if (artifactsFromModel.size() != outputArtifacts.size()) {
                 throw new IllegalArgumentException(String.format(
-                            "The number of output artifacts in the Jenkins project and in the AWS "
-                            + "CodePipeline pipeline action do not match.  Please configure the output locations "
-                            + "of your Jenkins project to match the AWS CodePipeline pipeline action's output artifacts. "
-                            + "Number of output locations in Jenkins project: %d, number of output artifacts "
-                            + "in AWS CodePipeline pipeline action: %d [Pipeline: %s, stage: %s, action: %s].",
-                            outputArtifacts.size(),
-                            model.getJob().getData().getOutputArtifacts().size(),
-                            model.getJob().getData().getPipelineContext().getPipelineName(),
-                            model.getJob().getData().getPipelineContext().getStage().getName(),
-                            model.getJob().getData().getPipelineContext().getAction().getName()));
+                        "The number of output artifacts in the Jenkins project and in the pipeline action do not match. "
+                                + "Configure the output locations of your Jenkins project to match the pipeline "
+                                + "action's output artifacts. Number of output locations in Jenkins project: %d, "
+                                + "number of output artifacts in the pipeline action: %d " + pipelineContextString(model),
+                        outputArtifacts.size(),
+                        model.getJob().getData().getOutputArtifacts().size()));
+            }
+
+            final Set<String> artifactNamesFromModel = getArtifactNamesFromModel(artifactsFromModel);
+            final Set<String> artifactNamesFromProject = PublisherCallable.getArtifactNamesFromProject(outputArtifacts);
+
+            if (!artifactNamesFromProject.isEmpty() && !artifactNamesFromProject.equals(artifactNamesFromModel)) {
+                throw new IllegalArgumentException(String.format(
+                        "Artifact names in the Jenkins project do not match output artifacts in the pipeline action. "
+                                + "Either configure the artifact name of each location to match output artifacts for "
+                                + "the pipeline action, or leave the field blank. " + pipelineContextString(model)));
             }
 
             if (!outputArtifacts.isEmpty() && actionSucceeded) {
@@ -250,7 +266,7 @@ public class AWSCodePipelinePublisher extends Notifier {
                 outputArtifacts = new ArrayList<>();
             }
             for (final OutputTuple tuple : buildOutputs) {
-                outputArtifacts.add(new OutputArtifact(tuple.getOutput()));
+                outputArtifacts.add(new OutputArtifact(tuple.getOutput(), ""));
             }
         }
         return this;
@@ -271,4 +287,20 @@ public class AWSCodePipelinePublisher extends Notifier {
         }
     }
 
+    private Set<String> getArtifactNamesFromModel(final List<Artifact> artifactsFromModel) {
+        Set<String> artifactNames = new HashSet<>();
+        for (final Artifact artifact : artifactsFromModel) {
+            if (!artifact.getName().isEmpty()) {
+                artifactNames.add(artifact.getName());
+            }
+        }
+        return artifactNames;
+    }
+
+    private String pipelineContextString(final CodePipelineStateModel model) {
+        return String.format("[Pipeline: %s, stage: %s, action: %s].",
+                model.getJob().getData().getPipelineContext().getPipelineName(),
+                model.getJob().getData().getPipelineContext().getStage().getName(),
+                model.getJob().getData().getPipelineContext().getAction().getName());
+    }
 }

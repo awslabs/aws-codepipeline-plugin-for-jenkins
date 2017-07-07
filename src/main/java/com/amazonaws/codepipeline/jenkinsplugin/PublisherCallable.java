@@ -14,21 +14,26 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.FilePath.FileCallable;
-import hudson.model.BuildListener;
-import hudson.remoting.VirtualChannel;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.s3.AmazonS3;
+
+import hudson.FilePath.FileCallable;
+import hudson.model.BuildListener;
+import hudson.remoting.VirtualChannel;
 
 public final class PublisherCallable implements FileCallable<Void> {
 
@@ -71,20 +76,57 @@ public final class PublisherCallable implements FileCallable<Void> {
                 model.getJob().getId(), awsClients.getCodePipelineClient());
         final AmazonS3 amazonS3 = awsClients.getS3Client(credentialsProvider);
 
-        final Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
+        Map<String, String> artifactLocations = new HashMap<>();
 
-        for (final OutputArtifact output : outputs) {
-            final Artifact artifact = artifactIterator.next();
-            final Path pathToUpload = CompressionTools.resolveWorkspacePath(workspace, output.getLocation());
+        final Set<String> artifactNames = getArtifactNamesFromProject(outputs);
+        if (!artifactNames.isEmpty() && artifactNames.size() != outputs.size()) {
+            final String message = "Not all locations have artifact name. "
+                    + "Either enter an artifact name for each location, "
+                    + "or leave the field blank.";
+            LoggingHelper.log(listener, message);
+            throw new IllegalArgumentException(message);
+        }
 
-            if (Files.isDirectory(pathToUpload.toRealPath())) {
-                uploadDirectory(pathToUpload, artifact, amazonS3);
+        if (artifactNames.size() == outputs.size()) {
+            for (final OutputArtifact outputArtifact : outputs) {
+                artifactLocations.put(outputArtifact.getArtifactName(), outputArtifact.getLocation());
+            }
+        } else {
+            Iterator<Artifact> artifactIterator = model.getJob().getData().getOutputArtifacts().iterator();
+            for (final OutputArtifact outputArtifact : outputs) {
+                final Artifact artifact = artifactIterator.next();
+                artifactLocations.put(artifact.getName(), outputArtifact.getLocation());
+            }
+        }
+
+        for (final Artifact artifact : model.getJob().getData().getOutputArtifacts()) {
+            final String artifactLocation = artifactLocations.get(artifact.getName());
+            if (artifactLocation != null) {
+                final Path pathToUpload = CompressionTools.resolveWorkspacePath(workspace, artifactLocation);
+
+                if (Files.isDirectory(pathToUpload.toRealPath())) {
+                    uploadDirectory(pathToUpload, artifact, amazonS3);
+                } else {
+                    uploadFile(pathToUpload.toFile(), artifact, CompressionType.None, amazonS3);
+                }
             } else {
-                uploadFile(pathToUpload.toFile(), artifact, CompressionType.None, amazonS3);
+                final String message = "No defined output artifact in pipeline matched the jobs output artifact: " + artifact.getName();
+                LoggingHelper.log(listener, message);
+                throw new IllegalArgumentException(message);
             }
         }
 
         return null;
+    }
+
+    public static Set<String> getArtifactNamesFromProject(final List<OutputArtifact> outputArtifacts) {
+        Set<String> artifactNames = new HashSet<>();
+        for (final OutputArtifact outputArtifact : outputArtifacts) {
+            if (!outputArtifact.getArtifactName().isEmpty()) {
+                artifactNames.add(outputArtifact.getArtifactName());
+            }
+        }
+        return artifactNames;
     }
 
     private void uploadDirectory(
@@ -120,5 +162,4 @@ public final class PublisherCallable implements FileCallable<Void> {
 
         PublisherTools.uploadFile(file, artifact, compressionType, model.getEncryptionKey(), amazonS3, listener);
     }
-
 }

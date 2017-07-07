@@ -95,8 +95,6 @@ public class PublisherCallableTest {
     @Mock private AmazonS3 s3Client;
     @Mock private Job job;
     @Mock private JobData jobData;
-    @Mock private Artifact outputArtifact;
-    @Mock private ArtifactLocation artifactLocation;
     @Mock private GetJobDetailsResult getJobDetailsResult;
     @Mock private JobDetails jobDetails;
     @Mock private JobData getJobDetailsJobData;
@@ -112,7 +110,21 @@ public class PublisherCallableTest {
     private CodePipelineStateModel model;
     private List<OutputArtifact> jenkinsOutputs;
     private List<Artifact> outputArtifacts;
-    private S3ArtifactLocation s3ArtifactLocation;
+
+    private S3ArtifactLocation s3ArtifactLocation = new S3ArtifactLocation()
+            .withBucketName(S3_BUCKET_NAME).withObjectKey(S3_OBJECT_KEY);
+    private S3ArtifactLocation s3ArtifactLocation1 = new S3ArtifactLocation()
+            .withBucketName(S3_BUCKET_NAME + "1").withObjectKey(S3_OBJECT_KEY + "1");
+    private S3ArtifactLocation s3ArtifactLocation2 = new S3ArtifactLocation()
+            .withBucketName(S3_BUCKET_NAME + "2").withObjectKey(S3_OBJECT_KEY + "2");
+
+    private ArtifactLocation artifactLocation = new ArtifactLocation().withS3Location(s3ArtifactLocation);
+    private ArtifactLocation artifactLocation1 = new ArtifactLocation().withS3Location(s3ArtifactLocation1);
+    private ArtifactLocation artifactLocation2 = new ArtifactLocation().withS3Location(s3ArtifactLocation2);
+
+    private Artifact outputArtifact = new Artifact().withName("dummyArtifact").withLocation(artifactLocation);
+    private Artifact outputArtifact1 = new Artifact().withName("dummyArtifact1").withLocation(artifactLocation1);
+    private Artifact outputArtifact2 = new Artifact().withName("dummyArtifact2").withLocation(artifactLocation2);
     private File workspace;
 
     private PublisherCallable publisher;
@@ -139,14 +151,10 @@ public class PublisherCallableTest {
         model.setRegion(REGION);
 
         jenkinsOutputs = new ArrayList<>();
-        jenkinsOutputs.add(new OutputArtifact(""));
+        jenkinsOutputs.add(new OutputArtifact("", ""));
 
         outputArtifacts = new ArrayList<>();
         outputArtifacts.add(outputArtifact);
-
-        s3ArtifactLocation = new S3ArtifactLocation();
-        s3ArtifactLocation.setBucketName(S3_BUCKET_NAME);
-        s3ArtifactLocation.setObjectKey(S3_OBJECT_KEY);
 
         when(clientFactory.getAwsClient(anyString(), anyString(), anyString(), anyInt(), anyString(), anyString())).thenReturn(awsClients);
         when(awsClients.getCodePipelineClient()).thenReturn(codePipelineClient);
@@ -160,9 +168,6 @@ public class PublisherCallableTest {
         when(getJobDetailsResult.getJobDetails()).thenReturn(jobDetails);
         when(jobDetails.getData()).thenReturn(getJobDetailsJobData);
         when(getJobDetailsJobData.getArtifactCredentials()).thenReturn(JOB_CREDENTIALS);
-
-        when(outputArtifact.getLocation()).thenReturn(artifactLocation);
-        when(artifactLocation.getS3Location()).thenReturn(s3ArtifactLocation);
 
         when(s3Client.initiateMultipartUpload(any(InitiateMultipartUploadRequest.class))).thenReturn(initiateMultipartUploadResult);
         when(initiateMultipartUploadResult.getUploadId()).thenReturn(UPLOAD_ID);
@@ -216,6 +221,8 @@ public class PublisherCallableTest {
     public void forDirectoriesUsesZipAsDefaultCompressionType() throws IOException {
         // given
         model.setCompressionType(CompressionType.None);
+        jenkinsOutputs.clear();
+        jenkinsOutputs.add(new OutputArtifact("", "dummyArtifact"));
 
         // when
         publisher.invoke(workspace, null);
@@ -232,6 +239,8 @@ public class PublisherCallableTest {
     public void forDirecotriesUsesCompressionTypeSpecifiedInModel() throws IOException {
         // given
         model.setCompressionType(CompressionType.Tar);
+        jenkinsOutputs.clear();
+        jenkinsOutputs.add(new OutputArtifact("", "dummyArtifact"));
 
         // when
         publisher.invoke(workspace, null);
@@ -248,7 +257,7 @@ public class PublisherCallableTest {
     public void doesNotUseCompressionWhenUploadingNormalFiles() throws IOException {
         // given
         jenkinsOutputs.clear();
-        jenkinsOutputs.add(new OutputArtifact("bbb.txt"));
+        jenkinsOutputs.add(new OutputArtifact(TEST_FILE, "dummyArtifact"));
 
         // when
         publisher.invoke(workspace, null);
@@ -265,20 +274,54 @@ public class PublisherCallableTest {
     public void canUploadMultipleOutputArtifacts() throws IOException {
         // given
         jenkinsOutputs.clear();
-        jenkinsOutputs.add(new OutputArtifact(TEST_FILE));
-        jenkinsOutputs.add(new OutputArtifact("Dir1"));
-        jenkinsOutputs.add(new OutputArtifact("Dir2"));
+        jenkinsOutputs.add(new OutputArtifact(TEST_FILE, "dummyArtifact"));
+        jenkinsOutputs.add(new OutputArtifact("Dir1", "dummyArtifact1"));
+        jenkinsOutputs.add(new OutputArtifact("Dir2", "dummyArtifact2"));
 
         outputArtifacts.clear();
         outputArtifacts.add(outputArtifact);
-        outputArtifacts.add(outputArtifact);
-        outputArtifacts.add(outputArtifact);
+        outputArtifacts.add(outputArtifact1);
+        outputArtifacts.add(outputArtifact2);
 
         // when
         publisher.invoke(workspace, null);
 
         // then
         verify(s3Client, times(3)).initiateMultipartUpload(any(InitiateMultipartUploadRequest.class));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void failedValidationWhenOnlySomeOutputLocationHasArtifactName() throws IOException {
+        // given
+        jenkinsOutputs.clear();
+        jenkinsOutputs.add(new OutputArtifact(TEST_FILE, "dummyArtifact"));
+        jenkinsOutputs.add(new OutputArtifact("Dir1", ""));
+        jenkinsOutputs.add(new OutputArtifact("Dir2", ""));
+
+        outputArtifacts.clear();
+        outputArtifacts.add(outputArtifact);
+        outputArtifacts.add(outputArtifact1);
+        outputArtifacts.add(outputArtifact2);
+
+        // when
+        publisher.invoke(workspace, null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void failedValidationWhenArtifactNameAndOutputArtifactDoesNotMatch() throws IOException {
+        // given
+        jenkinsOutputs.clear();
+        jenkinsOutputs.add(new OutputArtifact(TEST_FILE, "dummyArtifact"));
+        jenkinsOutputs.add(new OutputArtifact("Dir1", "dummyArtifact1"));
+        jenkinsOutputs.add(new OutputArtifact("Dir2", "dummyArtifact3"));
+
+        outputArtifacts.clear();
+        outputArtifacts.add(outputArtifact);
+        outputArtifacts.add(outputArtifact1);
+        outputArtifacts.add(outputArtifact2);
+
+        // when
+        publisher.invoke(workspace, null);
     }
 
 }
