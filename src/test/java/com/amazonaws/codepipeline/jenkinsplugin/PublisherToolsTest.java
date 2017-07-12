@@ -91,7 +91,7 @@ public class PublisherToolsTest {
 
     @Test
     public void putJobResultBuildSucceededSuccess() {
-        final String message = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult\n";
+        final String message = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult" + System.lineSeparator();
 
         PublisherTools.putJobResult(
                 true, // Build Succeeded
@@ -107,7 +107,7 @@ public class PublisherToolsTest {
 
     @Test
     public void putJobResultBuildFailureSuccess() {
-        final String message = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
+        final String message = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult" + System.lineSeparator();
 
         PublisherTools.putJobResult(
                 false, // Build Succeeded
@@ -150,7 +150,7 @@ public class PublisherToolsTest {
         inOrder.verify(mockS3Client, times(1)).completeMultipartUpload(any(CompleteMultipartUploadRequest.class));
 
         assertContainsIgnoreCase("[AWS CodePipeline Plugin] Uploading artifact:", outContent.toString());
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();
@@ -185,7 +185,7 @@ public class PublisherToolsTest {
 
         verify(mockS3Client).initiateMultipartUpload(initiateCaptor.capture());
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();
@@ -220,7 +220,7 @@ public class PublisherToolsTest {
 
         verify(mockS3Client).initiateMultipartUpload(initiateCaptor.capture());
 
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful", outContent.toString());
 
         final InitiateMultipartUploadRequest request = initiateCaptor.getValue();
         final SSEAwsKeyManagementParams encryptionParams = request.getSSEAwsKeyManagementParams();

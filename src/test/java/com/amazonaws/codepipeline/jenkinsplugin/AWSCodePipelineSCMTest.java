@@ -168,7 +168,7 @@ public class AWSCodePipelineSCMTest extends Suite {
             assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
 
             // then
-            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n", jobId);
+            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s", jobId);
 
             assertContainsIgnoreCase(expectedMessage, outContent.toString());
 
@@ -231,9 +231,9 @@ public class AWSCodePipelineSCMTest extends Suite {
             assertTrue(scm.checkout(null, null, workspacePath, null, null));
 
             // then
-            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
-                    + "[AWS CodePipeline Plugin] Job '%1$s' received\n"
-                    + "[AWS CodePipeline Plugin] Acknowledged job with ID: %1$s\n", jobId);
+            final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s" + System.lineSeparator()
+                    + "[AWS CodePipeline Plugin] Job '%1$s' received" + System.lineSeparator()
+                    + "[AWS CodePipeline Plugin] Acknowledged job with ID: %1$s", jobId);
 
             assertContainsIgnoreCase(expectedMessage, outContent.toString());
 
@@ -261,8 +261,8 @@ public class AWSCodePipelineSCMTest extends Suite {
                 // then
                 final String exceptionMessage = String.format("Failed to acknowledge job with ID: %s", jobId);
                 assertContainsIgnoreCase(exceptionMessage, e.getMessage());
-                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
-                        + "[AWS CodePipeline Plugin] Job '%1$s' received\n", jobId);
+                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s" + System.lineSeparator()
+                        + "[AWS CodePipeline Plugin] Job '%1$s' received", jobId);
                 assertContainsIgnoreCase(outMessage, outContent.toString());
 
                 final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);
@@ -286,8 +286,8 @@ public class AWSCodePipelineSCMTest extends Suite {
                 // then
                 final String exceptionMessage = String.format("Job with ID %s was already acknowledged", jobId);
                 assertContainsIgnoreCase(exceptionMessage, e.getMessage());
-                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s\n"
-                        + "[AWS CodePipeline Plugin] Job '%1$s' received\n", jobId);
+                final String outMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s" + System.lineSeparator()
+                        + "[AWS CodePipeline Plugin] Job '%1$s' received", jobId);
                 assertContainsIgnoreCase(outMessage, outContent.toString());
 
                 final InOrder inOrder = inOrder(mockFactory, mockAWSClients, codePipelineClient);

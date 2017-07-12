@@ -214,7 +214,7 @@ public class PublisherCallableTest {
         assertEquals(UPLOAD_ID, uploadRequest.getUploadId());
 
         assertContainsIgnoreCase("[AWS CodePipeline Plugin] Uploading artifact:", outContent.toString());
-        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful\n", outContent.toString());
+        assertContainsIgnoreCase("[AWS CodePipeline Plugin] Upload successful", outContent.toString());
     }
 
     @Test

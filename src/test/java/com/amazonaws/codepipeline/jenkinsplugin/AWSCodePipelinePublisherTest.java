@@ -77,9 +77,9 @@ public class AWSCodePipelinePublisherTest {
     private static final String PLUGIN_VERSION = "aws-codepipeline:unknown";
     private static final String BUILD_ID = "34";
 
-    private static final String PUBLISHING_ARTIFACTS_MESSAGE = "[AWS CodePipeline Plugin] Publishing artifacts\n";
-    private static final String PUT_JOB_FAILURE_MESSAGE = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult\n";
-    private static final String PUT_JOB_SUCCESS_MESSAGE = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult\n";
+    private static final String PUBLISHING_ARTIFACTS_MESSAGE = "[AWS CodePipeline Plugin] Publishing artifacts";
+    private static final String PUT_JOB_FAILURE_MESSAGE = "[AWS CodePipeline Plugin] Build failed, calling PutJobFailureResult";
+    private static final String PUT_JOB_SUCCESS_MESSAGE = "[AWS CodePipeline Plugin] Build succeeded, calling PutJobSuccessResult";
 
     @Mock private AWSClientFactory mockFactory;
     @Mock private AWSClients mockAWS;

@@ -274,7 +274,10 @@ public class ExtractionToolsTest extends Suite {
         @Test
         public void canDecompressZipFileCreatedFromCommandLine() {
             try {
-                compressedFile = Paths.get(getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile());
+                final String filePath = getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile();
+                final String osAppropriatePath = System.getProperty("os.name").contains("indow") ? filePath.substring(1) : filePath;
+
+                compressedFile = Paths.get(osAppropriatePath);
 
                 ExtractionTools.decompressFile(
                         compressedFile.toFile(),

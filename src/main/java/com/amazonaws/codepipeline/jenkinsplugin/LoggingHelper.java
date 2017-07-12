@@ -25,7 +25,13 @@ public final class LoggingHelper {
     }
 
     public static void log(final TaskListener listener, final String message, final Object... params) {
-        final String fullMessage = "[AWS CodePipeline Plugin] " + String.format(message, params);
+        final String fullMessage;
+
+        if (message != null && !message.isEmpty()) {
+            fullMessage = "[AWS CodePipeline Plugin] " + String.format(message, params);
+        } else {
+            fullMessage = "[AWS CodePipeline Plugin]";
+        }
 
         if (listener != null) {
             listener.getLogger().println(fullMessage);
