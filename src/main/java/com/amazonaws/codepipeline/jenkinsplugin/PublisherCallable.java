@@ -122,7 +122,7 @@ public final class PublisherCallable implements FileCallable<Void> {
     public static Set<String> getArtifactNamesFromProject(final List<OutputArtifact> outputArtifacts) {
         Set<String> artifactNames = new HashSet<>();
         for (final OutputArtifact outputArtifact : outputArtifacts) {
-            if (!outputArtifact.getArtifactName().isEmpty()) {
+            if (outputArtifact.getArtifactName() != null && !outputArtifact.getArtifactName().isEmpty()) {
                 artifactNames.add(outputArtifact.getArtifactName());
             }
         }

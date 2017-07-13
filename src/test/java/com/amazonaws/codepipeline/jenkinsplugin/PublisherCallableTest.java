@@ -218,6 +218,25 @@ public class PublisherCallableTest {
     }
 
     @Test
+    public void uploadsArtifactToS3WhenArtifactNameIsNull() throws IOException {
+        // given
+        model.setCompressionType(CompressionType.None);
+        final String nullArtifactName = null;
+        jenkinsOutputs.clear();
+        jenkinsOutputs.add(new OutputArtifact("", nullArtifactName));
+
+        // when
+        publisher.invoke(workspace, null);
+
+        // then
+        verify(s3Client).initiateMultipartUpload(initiateMultipartUploadRequestCaptor.capture());
+        verify(s3Client).uploadPart(uploadPartRequestCaptor.capture());
+
+        assertEquals("application/zip", initiateMultipartUploadRequestCaptor.getValue().getObjectMetadata().getContentType());
+        assertTrue(uploadPartRequestCaptor.getValue().getFile().getName().endsWith(".zip"));
+    }
+
+    @Test
     public void forDirectoriesUsesZipAsDefaultCompressionType() throws IOException {
         // given
         model.setCompressionType(CompressionType.None);
