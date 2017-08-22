@@ -211,7 +211,7 @@ public class AWSCodePipelinePublisher extends Notifier {
     }
 
     public BuildStepMonitor getRequiredMonitorService() {
-        return BuildStepMonitor.STEP;
+        return BuildStepMonitor.NONE;
     }
 
     public OutputArtifact[] getOutputArtifacts() {
