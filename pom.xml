@@ -21,8 +21,8 @@
 
   <developers>
     <developer>
-      <id>biagic</id>
-      <name>Eduardo Lopez Biagi</name>
+      <id>felipeal</id>
+      <name>Felipe Almeida</name>
       <email>codepipeline-dev+jenkinsci@amazon.com</email>
     </developer>
   </developers>
@@ -62,8 +62,13 @@
   <dependencies>
     <dependency>
       <groupId>com.amazonaws</groupId>
-      <artifactId>aws-java-sdk</artifactId>
-      <version>1.11.145</version>
+      <artifactId>aws-java-sdk-codepipeline</artifactId>
+      <version>1.11.273</version>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-s3</artifactId>
+      <version>1.11.273</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
