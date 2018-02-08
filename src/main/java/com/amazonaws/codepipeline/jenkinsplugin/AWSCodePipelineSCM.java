@@ -242,7 +242,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         validate(taskListener);
 
         // Wait a bit before polling, so not all Jenkins jobs poll at the same time
-        final long jitter = (long) RANDOM.nextInt(15 * 1000);
+        final long jitter = (long) RANDOM.nextInt(55 * 1000);
         Thread.sleep(jitter);
 
         final PollForJobsResult result = getCodePipelineClient().pollForJobs(new PollForJobsRequest()
