@@ -223,7 +223,9 @@ public class ExtractionToolsTest extends Suite {
         public void tearDown() throws IOException {
             super.tearDown();
 
-            Files.deleteIfExists(compressedFile);
+            if (compressedFile != null) {
+                Files.deleteIfExists(compressedFile);
+            }
             FileUtils.deleteDirectory(decompressDestination.toFile());
         }
 
@@ -277,10 +279,10 @@ public class ExtractionToolsTest extends Suite {
                 final String filePath = getClass().getClassLoader().getResource("aws-codedeploy-demo.zip").getFile();
                 final String osAppropriatePath = System.getProperty("os.name").contains("indow") ? filePath.substring(1) : filePath;
 
-                compressedFile = Paths.get(osAppropriatePath);
+                final Path cliCompressedFile = Paths.get(osAppropriatePath);
 
                 ExtractionTools.decompressFile(
-                        compressedFile.toFile(),
+                        cliCompressedFile.toFile(),
                         decompressDestination.toFile(),
                         CompressionType.Zip,
                         null);
