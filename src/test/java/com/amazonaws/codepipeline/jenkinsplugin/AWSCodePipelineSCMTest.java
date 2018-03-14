@@ -165,7 +165,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         @Test
         public void returnsBuildNowWhenThereIsAJob() throws InterruptedException, IOException {
             // when
-            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(PROJECT_NAME, ACTION_TYPE, null));
 
             // then
             final String expectedMessage = String.format("[AWS CodePipeline Plugin] Received job with ID: %1$s", jobId);
@@ -190,7 +190,7 @@ public class AWSCodePipelineSCMTest extends Suite {
             when(pollForJobsResult.getJobs()).thenReturn(new ArrayList<Job>());
 
             // when
-            assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(ACTION_TYPE, null));
+            assertEquals(PollingResult.NO_CHANGES, scm.pollForJobs(PROJECT_NAME, ACTION_TYPE, null));
 
             // then
             assertContainsIgnoreCase("No jobs found.", outContent.toString());
@@ -225,7 +225,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         @Test
         public void acknowledgesJobAndDownloadsInputArtifacts() throws InterruptedException, IOException {
             // given
-            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(PROJECT_NAME, ACTION_TYPE, null));
 
             // when
             assertTrue(scm.checkout(null, null, workspacePath, null, null));
@@ -251,7 +251,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         public void doesNotDownloadArtifactsWhenAcknowledgeJobDoesNotReturnInProgressJob() throws InterruptedException, IOException {
             // given
             when(acknowledgeJobResult.getStatus()).thenReturn("Created");
-            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(PROJECT_NAME, ACTION_TYPE, null));
 
             // when
             try {
@@ -277,7 +277,7 @@ public class AWSCodePipelineSCMTest extends Suite {
             // given
             when(codePipelineClient.acknowledgeJob(any(AcknowledgeJobRequest.class)))
                     .thenThrow(new InvalidNonceException("job was already acknowledged"));
-            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(ACTION_TYPE, null));
+            assertEquals(PollingResult.BUILD_NOW, scm.pollForJobs(PROJECT_NAME, ACTION_TYPE, null));
 
             // when
             try {

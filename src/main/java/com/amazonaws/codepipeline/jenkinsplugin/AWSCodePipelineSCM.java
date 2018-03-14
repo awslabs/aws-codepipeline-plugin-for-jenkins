@@ -86,6 +86,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
     private Job job;
     private final boolean clearWorkspace;
+    //keeping this to avoid "data stored in an older format" jenkins warning
     private final String projectName;
     private final String actionTypeCategory;
     private final String actionTypeProvider;
@@ -134,7 +135,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         this.awsAccessKey     = Validation.sanitize(awsAccessKey.trim());
         this.awsSecretKey     = Validation.sanitize(awsSecretKey.trim());
         this.proxyHost        = Validation.sanitize(proxyHost.trim());
-        this.projectName      = Validation.sanitize(projectName.trim());
+        this.projectName      = null;
         actionTypeCategory    = Validation.sanitize(category.trim());
         actionTypeProvider    = Validation.sanitize(provider.trim());
         actionTypeVersion     = Validation.sanitize(version.trim());
@@ -174,15 +175,17 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                 .withProvider(actionTypeProvider)
                 .withVersion(actionTypeVersion);
 
+        final String projectName = Validation.sanitize(project.getName().trim());
+
         LoggingHelper.log(listener, "Polling for jobs for action type id: ["
                 + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s]",
                 actionTypeId.getOwner(),
                 actionTypeId.getCategory(),
                 actionTypeId.getProvider(),
                 actionTypeId.getVersion(),
-                projectName);
+                project.getName());
 
-        return pollForJobs(actionTypeId, listener);
+        return pollForJobs(projectName, actionTypeId, listener);
     }
 
     @Override
@@ -239,8 +242,8 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return true;
     }
 
-    public PollingResult pollForJobs(final ActionTypeId actionType, final TaskListener taskListener) throws InterruptedException {
-        validate(taskListener);
+    public PollingResult pollForJobs(final String projectName, final ActionTypeId actionType, final TaskListener taskListener) throws InterruptedException {
+        validate(projectName, taskListener);
 
         // Wait a bit before polling, so not all Jenkins jobs poll at the same time
         final long jitter = (long) RANDOM.nextInt(55 * 1000);
@@ -316,7 +319,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         CodePipelineStateService.setModel(model);
     }
 
-    private void validate(final TaskListener listener) {
+    private void validate(final String projectName, final TaskListener listener) {
         Validation.validatePlugin(
                 awsAccessKey,
                 awsSecretKey,
