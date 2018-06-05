@@ -15,6 +15,7 @@
 package com.amazonaws.codepipeline.jenkinsplugin;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +26,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,7 +60,8 @@ import com.amazonaws.services.s3.model.S3Object;
 @RunWith(ExtractionToolsTest.class)
 @Suite.SuiteClasses({
         ExtractionToolsTest.GetCompressionTypeTest.class,
-        ExtractionToolsTest.DecompressFileTest.class
+        ExtractionToolsTest.DecompressFileTest.class,
+        ExtractionToolsTest.ExtractionPathTraversalTest.class
 })
 public class ExtractionToolsTest extends Suite {
 
@@ -338,6 +341,78 @@ public class ExtractionToolsTest extends Suite {
                     return FileVisitResult.CONTINUE;
                 }
             });
+        }
+    }
+
+    public static class ExtractionPathTraversalTest extends TestBase {
+        private static final String BASE_DIR = "base";
+        private Path testDir;
+
+        @Before
+        public void setUp() throws IOException {
+            testDir = Files.createTempDirectory("ExtractionPathTraversalTest.tmp.");
+        }
+
+        @After
+        public void tearDown() throws IOException {
+            FileUtils.deleteDirectory(testDir.toFile());
+        }
+
+        private void testPathTraversal(final String filename) throws IOException {
+            final String filePath = getClass().getClassLoader().getResource(filename).getFile();
+            final String osAppropriatePath = System.getProperty("os.name").contains("indow") ? filePath.substring(1) : filePath;
+            final Path cliCompressedFile = Paths.get(osAppropriatePath);
+            final Path baseDir = FileSystems.getDefault().getPath(testDir.toFile().getAbsolutePath(), BASE_DIR);
+            Files.createDirectories(baseDir);
+
+            // path traversal is dependent on zip file contents and the file system in use, for that reason the test may
+            // or may not throw an IOException. But, in either case, no file should be produced on top level testDir.
+            try {
+                ExtractionTools.decompressFile(
+                        cliCompressedFile.toFile(),
+                        baseDir.toFile(),
+                        CompressionType.Zip,
+                        null);
+            } catch (final IOException e) {
+                assertTrue(e.getMessage().startsWith("The compressed input file contains files targeting an invalid destination: "));
+            }
+            final String[] files = testDir.toFile().list();
+            assertEquals(filename + " should produce no extra entries in test dir after extraction", 1, files.length);
+            assertEquals("the only entry in test dir should be '" + BASE_DIR + "' directory", BASE_DIR, files[0]);
+            assertTrue(filename + " should produce a file named good.txt in '" + BASE_DIR + "' directory",
+                    Files.exists(baseDir.resolve("good.txt")));
+        }
+
+        @Test
+        public void shouldNotTraverseBaseDirOnExtractionUnix() throws IOException {
+            // dir-traversal-unix.zip:
+            // - good.txt
+            // - ../evil.txt
+            testPathTraversal("dir-traversal-unix.zip");
+        }
+
+        @Test
+        public void shouldNotTraverseBaseDirOnExtractionUnixIfFilenameMatchesBaseDir() throws IOException {
+            // dir-traversal-unix2.zip:
+            // - good.txt
+            // - ../base-evil.txt
+            testPathTraversal("dir-traversal-unix2.zip");
+        }
+
+        @Test
+        public void shouldNotTraverseBaseDirOnExtractionWin() throws IOException {
+            // dir-traversal-win.zip:
+            // - good.txt
+            // - ..\evil.txt
+            testPathTraversal("dir-traversal-win.zip");
+        }
+
+        @Test
+        public void shouldNotTraverseBaseDirOnExtractionWinIfFilenameMatchesBaseDir() throws IOException {
+            // dir-traversal-win2.zip:
+            // - good.txt
+            // - ..\base-evil.txt
+            testPathTraversal("dir-traversal-win2.zip");
         }
     }
 

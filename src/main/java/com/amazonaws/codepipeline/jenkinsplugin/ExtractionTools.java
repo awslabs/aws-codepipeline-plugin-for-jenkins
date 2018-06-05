@@ -67,7 +67,7 @@ public final class ExtractionTools {
 
         while (entries.hasMoreElements()) {
             final ZipArchiveEntry entry = entries.nextElement();
-            final File entryDestination = new File(destination, entry.getName());
+            final File entryDestination = getDestinationFile(destination, entry.getName());
 
             if (entry.isDirectory()) {
                 entryDestination.mkdirs();
@@ -88,7 +88,7 @@ public final class ExtractionTools {
         ArchiveEntry entry = archiveInputStream.getNextEntry();
 
         while (entry != null) {
-            final File destinationFile = new File(destination, entry.getName());
+            final File destinationFile = getDestinationFile(destination, entry.getName());
 
             if (entry.isDirectory()) {
                 destinationFile.mkdir();
@@ -106,6 +106,14 @@ public final class ExtractionTools {
 
             entry = archiveInputStream.getNextEntry();
         }
+    }
+
+    private static File getDestinationFile(final File basedir, final String file) throws IOException {
+        final File destination = new File(basedir, file);
+        if (!destination.getCanonicalPath().startsWith(basedir.getCanonicalPath() + File.separator)) {
+            throw new IOException("The compressed input file contains files targeting an invalid destination: " + file);
+        }
+        return destination;
     }
 
     public static void deleteTemporaryCompressedFile(final File fileToDelete) throws IOException {
