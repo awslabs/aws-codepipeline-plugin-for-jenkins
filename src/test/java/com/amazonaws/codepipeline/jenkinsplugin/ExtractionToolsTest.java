@@ -358,12 +358,30 @@ public class ExtractionToolsTest extends Suite {
             FileUtils.deleteDirectory(testDir.toFile());
         }
 
-        private void testPathTraversal(final String filename) throws IOException {
+
+        private Path getFilePath(final String filename) {
             final String filePath = getClass().getClassLoader().getResource(filename).getFile();
             final String osAppropriatePath = System.getProperty("os.name").contains("indow") ? filePath.substring(1) : filePath;
-            final Path cliCompressedFile = Paths.get(osAppropriatePath);
+            return Paths.get(osAppropriatePath);
+        }
+
+        private Path createExtractionDir() throws IOException {
             final Path baseDir = FileSystems.getDefault().getPath(testDir.toFile().getAbsolutePath(), BASE_DIR);
             Files.createDirectories(baseDir);
+            return baseDir;
+        }
+
+        private void assertDirContents(final String filename, final Path baseDir) {
+            final String[] files = testDir.toFile().list();
+            assertEquals(filename + " should produce no extra entries in test dir after extraction", 1, files.length);
+            assertEquals("the only entry in test dir should be '" + BASE_DIR + "' directory", BASE_DIR, files[0]);
+            assertTrue(filename + " should produce a file named good.txt in '" + BASE_DIR + "' directory",
+                    Files.exists(baseDir.resolve("good.txt")));
+        }
+
+        private void testPathTraversal(final String filename) throws IOException {
+            final Path cliCompressedFile = getFilePath(filename);
+            final Path baseDir = createExtractionDir();
 
             // path traversal is dependent on zip file contents and the file system in use, for that reason the test may
             // or may not throw an IOException. But, in either case, no file should be produced on top level testDir.
@@ -376,11 +394,22 @@ public class ExtractionToolsTest extends Suite {
             } catch (final IOException e) {
                 assertTrue(e.getMessage().startsWith("The compressed input file contains files targeting an invalid destination: "));
             }
-            final String[] files = testDir.toFile().list();
-            assertEquals(filename + " should produce no extra entries in test dir after extraction", 1, files.length);
-            assertEquals("the only entry in test dir should be '" + BASE_DIR + "' directory", BASE_DIR, files[0]);
-            assertTrue(filename + " should produce a file named good.txt in '" + BASE_DIR + "' directory",
-                    Files.exists(baseDir.resolve("good.txt")));
+
+            assertDirContents(filename, baseDir);
+        }
+
+
+        private void shouldNotThrowExtractingFile(final String filename) throws IOException {
+            final Path cliCompressedFile = getFilePath(filename);
+            final Path baseDir = createExtractionDir();
+
+            ExtractionTools.decompressFile(
+                    cliCompressedFile.toFile(),
+                    baseDir.toFile(),
+                    CompressionType.Zip,
+                    null);
+
+            assertDirContents(filename, baseDir);
         }
 
         @Test
@@ -414,6 +443,13 @@ public class ExtractionToolsTest extends Suite {
             // - ..\base-evil.txt
             testPathTraversal("dir-traversal-win2.zip");
         }
-    }
 
+        @Test
+        public void shouldNotThrowIfZipContainsDotSlash() throws IOException {
+            // dir-traversal-dotslash.zip
+            // - ./
+            // - good.txt
+            shouldNotThrowExtractingFile("dir-traversal-dotslash.zip");
+        }
+    }
 }

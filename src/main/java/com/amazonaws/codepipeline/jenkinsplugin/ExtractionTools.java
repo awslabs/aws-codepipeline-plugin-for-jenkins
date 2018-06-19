@@ -110,10 +110,14 @@ public final class ExtractionTools {
 
     private static File getDestinationFile(final File basedir, final String file) throws IOException {
         final File destination = new File(basedir, file);
-        if (!destination.getCanonicalPath().startsWith(basedir.getCanonicalPath() + File.separator)) {
-            throw new IOException("The compressed input file contains files targeting an invalid destination: " + file);
+        final String canonicalDestination = destination.getCanonicalPath();
+        final String canonicalBasedir = basedir.getCanonicalPath();
+
+        if (canonicalDestination.startsWith(canonicalBasedir + File.separator) || canonicalDestination.equals(canonicalBasedir)) {
+            return destination;
         }
-        return destination;
+
+        throw new IOException("The compressed input file contains files targeting an invalid destination: " + file);
     }
 
     public static void deleteTemporaryCompressedFile(final File fileToDelete) throws IOException {
