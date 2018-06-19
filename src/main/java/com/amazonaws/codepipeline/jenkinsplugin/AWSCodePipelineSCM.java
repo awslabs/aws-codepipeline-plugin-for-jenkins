@@ -36,8 +36,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
+import hudson.util.Secret;
 import net.sf.json.JSONObject;
 
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
@@ -94,7 +96,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
     private final String region;
     private final String awsAccessKey;
-    private final String awsSecretKey;
+    private final Secret awsSecretKey;
     private final String proxyHost;
     private final int proxyPort;
 
@@ -133,7 +135,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         clearWorkspace        = clear;
         this.region           = Validation.sanitize(region.trim());
         this.awsAccessKey     = Validation.sanitize(awsAccessKey.trim());
-        this.awsSecretKey     = Validation.sanitize(awsSecretKey.trim());
+        this.awsSecretKey     = Secret.fromString(Validation.sanitize(awsSecretKey.trim()));
         this.proxyHost        = Validation.sanitize(proxyHost.trim());
         this.projectName      = null;
         actionTypeCategory    = Validation.sanitize(category.trim());
@@ -278,7 +280,10 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return awsAccessKey;
     }
 
-    public String getAwsSecretKey() {
+    public Secret getAwsSecretKey() {
+        if (StringUtils.isEmpty(Secret.toString(awsSecretKey))) {
+            return null;
+        }
         return awsSecretKey;
     }
 
@@ -306,11 +311,16 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         return actionTypeVersion;
     }
 
+    // this is required so we can use JenkinsRule.assertEqualDataBoundBeans in unit tests
+    public String getName() {
+        return null;
+    }
+
     public void initializeModel() {
         final CodePipelineStateModel model = new CodePipelineStateModel();
         model.setActionTypeCategory(actionTypeCategory);
         model.setAwsAccessKey(awsAccessKey);
-        model.setAwsSecretKey(awsSecretKey);
+        model.setAwsSecretKey(Secret.toString(awsSecretKey));
         model.setCompressionType(CompressionType.None);
         model.setJob(job);
         model.setProxyHost(proxyHost);
@@ -322,7 +332,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     private void validate(final String projectName, final TaskListener listener) {
         Validation.validatePlugin(
                 awsAccessKey,
-                awsSecretKey,
+                Secret.toString(awsSecretKey),
                 region,
                 actionTypeCategory,
                 actionTypeProvider,
@@ -334,7 +344,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
     private AWSCodePipeline getCodePipelineClient() {
         return awsClientFactory.getAwsClient(
                 awsAccessKey,
-                awsSecretKey,
+                Secret.toString(awsSecretKey),
                 proxyHost,
                 proxyPort,
                 region,

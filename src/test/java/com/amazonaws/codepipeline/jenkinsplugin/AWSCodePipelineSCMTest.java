@@ -16,6 +16,7 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 
 import static com.amazonaws.codepipeline.jenkinsplugin.TestUtils.assertContainsIgnoreCase;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
@@ -29,14 +30,19 @@ import static org.mockito.Mockito.when;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.FilePath;
+import hudson.model.FreeStyleProject;
+import hudson.model.Project;
 import hudson.model.TaskListener;
 import hudson.model.AbstractBuild;
 import hudson.scm.PollingResult;
+import hudson.scm.SCM;
 import hudson.util.FormValidation;
+import hudson.util.Secret;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.UUID;
@@ -44,11 +50,13 @@ import java.util.UUID;
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
+import org.jvnet.hudson.test.JenkinsRule;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.InOrder;
@@ -73,7 +81,8 @@ import com.amazonaws.services.codepipeline.model.PollForJobsResult;
 @Suite.SuiteClasses({
         AWSCodePipelineSCMTest.PollForJobsTests.class,
         AWSCodePipelineSCMTest.CheckoutTests.class,
-        AWSCodePipelineSCMTest.SCMDescriptorTests.class
+        AWSCodePipelineSCMTest.SCMDescriptorTests.class,
+        AWSCodePipelineSCMTest.ConfigTest.class
 })
 public class AWSCodePipelineSCMTest extends Suite {
 
@@ -94,10 +103,15 @@ public class AWSCodePipelineSCMTest extends Suite {
         protected String jobId;
         protected String jobNonce;
 
-        public void setUp() throws IOException, InterruptedException {
+        public void setUp() throws IOException, InterruptedException, ReflectiveOperationException {
             MockitoAnnotations.initMocks(this);
             jobId = UUID.randomUUID().toString();
             jobNonce = UUID.randomUUID().toString();
+
+            // Override the secret key so that we can test this class without {@link jenkins.model.Jenkins}.
+            Field field = Secret.class.getDeclaredField("SECRET");
+            field.setAccessible(true);
+            field.set(null, RandomStringUtils.random(16));
         }
     }
 
@@ -120,7 +134,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         protected ByteArrayOutputStream outContent;
 
         @Before
-        public void setUp() throws IOException, InterruptedException {
+        public void setUp() throws IOException, InterruptedException, ReflectiveOperationException {
             super.setUp();
 
             when(mockFactory.getAwsClient(anyString(), anyString(), anyString(), anyInt(), anyString(), anyString()))
@@ -158,7 +172,7 @@ public class AWSCodePipelineSCMTest extends Suite {
     public static class PollForJobsTests extends PollingTestBase {
 
         @Before
-        public void setUp() throws IOException, InterruptedException {
+        public void setUp() throws IOException, InterruptedException, ReflectiveOperationException {
             super.setUp();
         }
 
@@ -211,7 +225,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         private ArgumentCaptor<AcknowledgeJobRequest> acknowledgeJobRequest;
 
         @Before
-        public void setUp() throws IOException, InterruptedException {
+        public void setUp() throws IOException, InterruptedException, ReflectiveOperationException {
             super.setUp();
 
             final File tempFile = File.createTempFile("workspacePath", "tmp");
@@ -311,7 +325,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         private AWSCodePipelineSCM.DescriptorImpl descriptor;
 
         @Before
-        public void setUp() throws IOException, InterruptedException {
+        public void setUp() throws IOException, InterruptedException, ReflectiveOperationException {
             super.setUp();
 
             descriptor = new AWSCodePipelineSCM.DescriptorImpl(false);
@@ -470,4 +484,50 @@ public class AWSCodePipelineSCMTest extends Suite {
         }
     }
 
+    public static class ConfigTest extends TestBase {
+        private static final String PLAIN_SECRET = "PLAIN-SECRET";
+
+        @Rule
+        public JenkinsRule jenkinsRule = new JenkinsRule();
+
+        private AWSCodePipelineSCM awsCodePipelineSCM;
+
+        @Before
+        public void setUp() throws InterruptedException, ReflectiveOperationException, IOException {
+            super.setUp();
+
+            awsCodePipelineSCM = new AWSCodePipelineSCM("name",
+                    true,
+                    "us-east-1",
+                    "awsAccessKey",
+                    PLAIN_SECRET,
+                    "proxyhost",
+                    "8080",
+                    "Build",
+                    "Jenkins",
+                    "1");
+        }
+
+        @Test
+        public void testRoundTripConfiguration() throws Exception {
+            final AWSCodePipelineSCM before = awsCodePipelineSCM;
+            final Project project = jenkinsRule.createFreeStyleProject();
+            project.setScm(before);
+
+            jenkinsRule.configRoundtrip(project);
+            final SCM after = project.getScm();
+
+            jenkinsRule.assertEqualDataBoundBeans(before, after);
+        }
+
+        @Test
+        public void storeAwsSecretKeyAsSecret() throws Exception {
+            final Project project = jenkinsRule.createFreeStyleProject();
+            project.setScm(awsCodePipelineSCM);
+
+            jenkinsRule.configRoundtrip(project);
+
+            assertFalse(project.getConfigFile().asString().contains(PLAIN_SECRET));
+        }
+    }
 }
