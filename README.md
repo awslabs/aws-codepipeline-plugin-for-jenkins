@@ -11,6 +11,12 @@ will compress the build artifacts and upload them to AWS CodePipeline.
 
 ## Set up
 
+Configure a build server running Jenkins. For your build server, it is recommended to create an Amazon EC2 instance running Jenkins.
+
+Note: As a best practice, configure an EC2 instance profile rather than using AWS access and secret keys for your server applications. For more information, see [https://docs.aws.amazon.com/codepipeline/latest/userguide/tutorials-four-stage-pipeline.html#tutorials-four-stage-pipeline-prerequisites-jenkins-iam-role](https://docs.aws.amazon.com/codepipeline/latest/userguide/tutorials-four-stage-pipeline.html#tutorials-four-stage-pipeline-prerequisites-jenkins-iam-role).
+
+### Configure build project
+
 1. Install the `AWS CodePipeline` plugin.
 2. Open your project configuration, or create a new project.
 3. In the `Source Code Management` section, select **AWS CodePipeline**.
