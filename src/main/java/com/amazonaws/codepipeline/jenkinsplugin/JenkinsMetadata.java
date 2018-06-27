@@ -16,6 +16,7 @@ package com.amazonaws.codepipeline.jenkinsplugin;
 
 import hudson.Plugin;
 
+import hudson.util.VersionNumber;
 import jenkins.model.Jenkins;
 
 /**
@@ -24,18 +25,35 @@ import jenkins.model.Jenkins;
  * Note: this should only be invoked from the master node.
  */
 public class JenkinsMetadata {
+    private final static String PLUGIN = "aws-codepipeline";
+    private static final String UNKNOWN = "unknown";
 
     private JenkinsMetadata() {}
 
-    public static String getPluginVersion() {
-        final Jenkins instance = Jenkins.getInstance();
-        if (instance != null) {
-            final Plugin plugin = instance.getPlugin("aws-codepipeline");
-            if (plugin != null) {
-                return "aws-codepipeline:" + plugin.getWrapper().getVersion();
-            }
-        }
-        return "aws-codepipeline:unknown";
+    public static String getPluginUserAgentPrefix() {
+        return String.format("%s/%s jenkins/%s",
+                PLUGIN,
+                getPluginVersion(),
+                getJenkinsVersion());
     }
 
+    private static String getJenkinsVersion() {
+        final VersionNumber jenkinsVersion = Jenkins.getVersion();
+        if (jenkinsVersion != null) {
+            return jenkinsVersion.toString();
+        } else {
+            return UNKNOWN;
+        }
+    }
+
+    private static String getPluginVersion() {
+        final Jenkins instance = Jenkins.getInstance();
+        if (instance != null) {
+            final Plugin plugin = instance.getPlugin(PLUGIN);
+            if (plugin != null) {
+                return plugin.getWrapper().getVersion();
+            }
+        }
+        return UNKNOWN;
+    }
 }

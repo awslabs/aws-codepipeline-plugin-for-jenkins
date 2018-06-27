@@ -42,14 +42,14 @@ public final class DownloadCallable implements FileCallable<Void> {
     private final Job job;
     private final CodePipelineStateModel model;
     private final AWSClientFactory awsClientFactory;
-    private final String pluginVersion;
+    private final String pluginUserAgentPrefix;
 
     public DownloadCallable(
             final boolean clearWorkspace,
             final Job job,
             final CodePipelineStateModel model,
             final AWSClientFactory awsClientFactory,
-            final String pluginVersion,
+            final String pluginUserAgentPrefix,
             final TaskListener listener) {
 
         this.clearWorkspace = clearWorkspace;
@@ -57,7 +57,7 @@ public final class DownloadCallable implements FileCallable<Void> {
         this.job = job;
         this.model = model;
         this.awsClientFactory = awsClientFactory;
-        this.pluginVersion = pluginVersion;
+        this.pluginUserAgentPrefix = pluginUserAgentPrefix;
     }
 
     @Override
@@ -70,7 +70,7 @@ public final class DownloadCallable implements FileCallable<Void> {
                 model.getProxyHost(),
                 model.getProxyPort(),
                 model.getRegion(),
-                pluginVersion);
+                pluginUserAgentPrefix);
 
         final AWSCodePipelineJobCredentialsProvider credentialsProvider = new AWSCodePipelineJobCredentialsProvider(
                 job.getId(), awsClients.getCodePipelineClient());

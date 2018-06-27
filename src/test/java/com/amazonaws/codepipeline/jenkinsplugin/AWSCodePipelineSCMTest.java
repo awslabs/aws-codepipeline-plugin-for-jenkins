@@ -98,7 +98,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         protected static final String SECRET_KEY = "4321";
         protected static final String PROXY_HOST = "";
         protected static final int PROXY_PORT = 0;
-        protected static final String PLUGIN_VERSION = "aws-codepipeline:unknown";
+        protected static final String PLUGIN_VERSION = "aws-codepipeline/unknown jenkins/?";
 
         protected String jobId;
         protected String jobNonce;

@@ -40,7 +40,7 @@ public final class PublisherCallable implements FileCallable<Void> {
     private static final long serialVersionUID = 1L;
 
     private final String projectName;
-    private final String pluginVersion;
+    private final String pluginUserAgentPrefix;
     private final CodePipelineStateModel model;
     private final AWSClientFactory awsClientFactory;
     private final List<OutputArtifact> outputs;
@@ -51,14 +51,14 @@ public final class PublisherCallable implements FileCallable<Void> {
             final CodePipelineStateModel model,
             final List<OutputArtifact> outputs,
             final AWSClientFactory awsClientFactory,
-            final String pluginVersion,
+            final String pluginUserAgentPrefix,
             final BuildListener listener) {
 
         this.projectName = Objects.requireNonNull(projectName, "projectName must not be null");
         this.model = Objects.requireNonNull(model, "model must not be null");
         this.outputs = Objects.requireNonNull(outputs, "outputs must not be null");
         this.awsClientFactory = Objects.requireNonNull(awsClientFactory, "awsClientFactory must not be null");
-        this.pluginVersion = Objects.requireNonNull(pluginVersion, "pluginVersion must not be null");
+        this.pluginUserAgentPrefix = Objects.requireNonNull(pluginUserAgentPrefix, "pluginUserAgentPrefix must not be null");
         this.listener = listener;
     }
 
@@ -70,7 +70,7 @@ public final class PublisherCallable implements FileCallable<Void> {
                 model.getProxyHost(),
                 model.getProxyPort(),
                 model.getRegion(),
-                pluginVersion);
+                pluginUserAgentPrefix);
 
         final AWSCodePipelineJobCredentialsProvider credentialsProvider = new AWSCodePipelineJobCredentialsProvider(
                 model.getJob().getId(), awsClients.getCodePipelineClient());

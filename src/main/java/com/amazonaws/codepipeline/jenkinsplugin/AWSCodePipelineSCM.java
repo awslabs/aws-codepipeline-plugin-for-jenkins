@@ -238,7 +238,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                     model.getJob(),
                     model,
                     awsClientFactory,
-                    JenkinsMetadata.getPluginVersion(),
+                    JenkinsMetadata.getPluginUserAgentPrefix(),
                     listener));
 
         return true;
@@ -348,7 +348,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
                 proxyHost,
                 proxyPort,
                 region,
-                JenkinsMetadata.getPluginVersion())
+                JenkinsMetadata.getPluginUserAgentPrefix())
                 .getCodePipelineClient();
     }
 

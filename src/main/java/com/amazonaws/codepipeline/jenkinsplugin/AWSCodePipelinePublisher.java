@@ -115,7 +115,7 @@ public class AWSCodePipelinePublisher extends Notifier {
                 model.getProxyHost(),
                 model.getProxyPort(),
                 model.getRegion(),
-                JenkinsMetadata.getPluginVersion());
+                JenkinsMetadata.getPluginUserAgentPrefix());
 
         if (!actionSucceeded) {
             if (model.getActionTypeCategory() == CategoryType.Build) {
@@ -201,7 +201,7 @@ public class AWSCodePipelinePublisher extends Notifier {
                 model,
                 outputArtifacts,
                 awsClientFactory,
-                JenkinsMetadata.getPluginVersion(),
+                JenkinsMetadata.getPluginUserAgentPrefix(),
                 listener));
     }
 

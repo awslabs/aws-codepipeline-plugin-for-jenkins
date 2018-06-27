@@ -74,7 +74,7 @@ public class AWSCodePipelinePublisherTest {
     private static final String SECRET_KEY = "4321";
     private static final String PROXY_HOST = "";
     private static final int PROXY_PORT = 0;
-    private static final String PLUGIN_VERSION = "aws-codepipeline:unknown";
+    private static final String PLUGIN_VERSION = "aws-codepipeline/unknown jenkins/?";
     private static final String BUILD_ID = "34";
 
     private static final String PUBLISHING_ARTIFACTS_MESSAGE = "[AWS CodePipeline Plugin] Publishing artifacts";

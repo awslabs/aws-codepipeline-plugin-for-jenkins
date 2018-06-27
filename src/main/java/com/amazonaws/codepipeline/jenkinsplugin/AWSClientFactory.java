@@ -31,7 +31,7 @@ public class AWSClientFactory implements Serializable {
             final String proxyHost,
             final int proxyPort,
             final String region,
-            final String pluginVersion) {
+            final String pluginUserAgentPrefix) {
 
         final Region awsRegion = Region.getRegion(Regions.fromName(region));
         final AWSClients aws;
@@ -41,7 +41,7 @@ public class AWSClientFactory implements Serializable {
                     awsRegion,
                     proxyHost,
                     proxyPort,
-                    pluginVersion);
+                    pluginUserAgentPrefix);
         }
         else {
             aws = AWSClients.fromBasicCredentials(
@@ -50,7 +50,7 @@ public class AWSClientFactory implements Serializable {
                     awsSecretKey,
                     proxyHost,
                     proxyPort,
-                    pluginVersion);
+                    pluginUserAgentPrefix);
         }
 
         return aws;

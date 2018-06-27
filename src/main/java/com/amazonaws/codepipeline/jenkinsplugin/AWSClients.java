@@ -1,12 +1,12 @@
 /*
  * Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
  * A copy of the License is located at
- * 
+ *
  *  http://aws.amazon.com/apache2.0
- * 
+ *
  * or in the "license" file accompanying this file. This file is distributed
  * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
  * express or implied. See the License for the specific language governing
@@ -40,7 +40,7 @@ public class AWSClients {
             final AWSCredentials credentials,
             final String proxyHost,
             final int proxyPort,
-            final String pluginVersion,
+            final String pluginUserAgentPrefix,
             final CodePipelineClientFactory codePipelineClientFactory,
             final S3ClientFactory s3ClientFactory) {
 
@@ -49,7 +49,7 @@ public class AWSClients {
         } else {
             this.region = region;
         }
-        this.clientCfg = new ClientConfiguration().withUserAgent(pluginVersion);
+        this.clientCfg = new ClientConfiguration().withUserAgentPrefix(pluginUserAgentPrefix);
 
         if (proxyHost != null && proxyPort > 0) {
             clientCfg.setProxyHost(proxyHost);
@@ -66,9 +66,9 @@ public class AWSClients {
             final Region region,
             final String proxyHost,
             final int proxyPort,
-            final String pluginVersion) {
+            final String pluginUserAgentPrefix) {
 
-        return new AWSClients(region, null, proxyHost, proxyPort, pluginVersion, new CodePipelineClientFactory(), new S3ClientFactory());
+        return new AWSClients(region, null, proxyHost, proxyPort, pluginUserAgentPrefix, new CodePipelineClientFactory(), new S3ClientFactory());
     }
 
     public static AWSClients fromBasicCredentials(
@@ -77,14 +77,14 @@ public class AWSClients {
             final String awsSecretKey,
             final String proxyHost,
             final int proxyPort,
-            final String pluginVersion) {
+            final String pluginUserAgentPrefix) {
 
         return new AWSClients(
                 region,
                 new BasicAWSCredentials(awsAccessKey, awsSecretKey),
                 proxyHost,
                 proxyPort,
-                pluginVersion,
+                pluginUserAgentPrefix,
                 new CodePipelineClientFactory(),
                 new S3ClientFactory());
     }
