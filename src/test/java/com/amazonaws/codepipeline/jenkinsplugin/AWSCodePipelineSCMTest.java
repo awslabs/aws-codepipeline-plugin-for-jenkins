@@ -38,6 +38,7 @@ import hudson.scm.PollingResult;
 import hudson.scm.SCM;
 import hudson.util.FormValidation;
 import hudson.util.Secret;
+import jenkins.model.Jenkins;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -98,7 +99,7 @@ public class AWSCodePipelineSCMTest extends Suite {
         protected static final String SECRET_KEY = "4321";
         protected static final String PROXY_HOST = "";
         protected static final int PROXY_PORT = 0;
-        protected static final String PLUGIN_VERSION = "aws-codepipeline/unknown jenkins/?";
+        protected static final String PLUGIN_VERSION = "aws-codepipeline/unknown jenkins/" + Jenkins.getVersion();
 
         protected String jobId;
         protected String jobNonce;
