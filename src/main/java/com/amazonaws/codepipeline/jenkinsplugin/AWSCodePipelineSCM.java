@@ -66,6 +66,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         Regions.US_WEST_1,
         Regions.US_WEST_2,
         Regions.EU_CENTRAL_1,
+        Regions.EU_NORTH_1,
         Regions.EU_WEST_1,
         Regions.EU_WEST_2,
         Regions.EU_WEST_3,
