@@ -5,9 +5,7 @@ post-build (publisher) step for your Jenkins project.  It will poll for AWS
 CodePipeline jobs, and download input artifacts.  When a build succeeds, it
 will compress the build artifacts and upload them to AWS CodePipeline.
 
-### Build Status
-
-[![Build Status](https://ci.jenkins.io/buildStatus/icon?job=Plugins/aws-codepipeline-plugin/master)](https://ci.jenkins.io/job/Plugins/job/aws-codepipeline-plugin/job/master/)
+[![Build Status](https://ci.jenkins.io/buildStatus/icon?job=Plugins/aws-codepipeline-plugin/master)](https://ci.jenkins.io/job/Plugins/job/aws-codepipeline-plugin/job/master/) [![Changelog](https://img.shields.io/github/release/awslabs/aws-codepipeline-plugin-for-jenkins.svg?label=changelog)](https://github.com/awslabs/aws-codepipeline-plugin-for-jenkins/releases/latest) [![Jenkins Plugin Installs](https://img.shields.io/jenkins/plugin/i/aws-codepipeline.svg)](https://plugins.jenkins.io/aws-codepipeline-plugin)
 
 ## Set up
 

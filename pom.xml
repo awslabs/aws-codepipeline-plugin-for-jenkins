@@ -17,7 +17,7 @@
     and the post-build event uploads the build artifacts and calls
     PutJobSuccessResult/PutJobFailureResult to report back the build status.
   </description>
-  <url>https://wiki.jenkins-ci.org/display/JENKINS/AWS+CodePipeline+Plugin</url>
+  <url>https://github.com/jenkinsci/aws-codepipeline-plugin</url>
 
   <developers>
     <developer>
