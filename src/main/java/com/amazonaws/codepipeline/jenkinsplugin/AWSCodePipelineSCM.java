@@ -14,30 +14,10 @@
  */
 package com.amazonaws.codepipeline.jenkinsplugin;
 
-import hudson.AbortException;
-import hudson.Extension;
-import hudson.FilePath;
-import hudson.Launcher;
-import hudson.model.BuildListener;
-import hudson.model.TaskListener;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.scm.ChangeLogParser;
-import hudson.scm.NullChangeLogParser;
-import hudson.scm.PollingResult;
-import hudson.scm.SCMDescriptor;
-import hudson.scm.SCMRevisionState;
-import hudson.scm.SCM;
-import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
-
-import hudson.util.Secret;
-import net.sf.json.JSONObject;
 
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -58,24 +38,43 @@ import com.amazonaws.services.codepipeline.model.JobStatus;
 import com.amazonaws.services.codepipeline.model.PollForJobsRequest;
 import com.amazonaws.services.codepipeline.model.PollForJobsResult;
 
+import hudson.AbortException;
+import hudson.Extension;
+import hudson.FilePath;
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.TaskListener;
+import hudson.scm.ChangeLogParser;
+import hudson.scm.NullChangeLogParser;
+import hudson.scm.PollingResult;
+import hudson.scm.SCM;
+import hudson.scm.SCMDescriptor;
+import hudson.scm.SCMRevisionState;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
+import hudson.util.Secret;
+import net.sf.json.JSONObject;
+
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
     public static final Regions[] AVAILABLE_REGIONS = {
-        Regions.US_EAST_1,
         Regions.US_EAST_2,
+        Regions.US_EAST_1,
         Regions.US_WEST_1,
         Regions.US_WEST_2,
-        Regions.EU_CENTRAL_1,
-        Regions.EU_NORTH_1,
-        Regions.EU_WEST_1,
-        Regions.EU_WEST_2,
-        Regions.EU_WEST_3,
-        Regions.AP_NORTHEAST_1,
+        Regions.AP_SOUTH_1,
         Regions.AP_NORTHEAST_2,
         Regions.AP_SOUTHEAST_1,
         Regions.AP_SOUTHEAST_2,
-        Regions.AP_SOUTH_1,
+        Regions.AP_NORTHEAST_1,
         Regions.CA_CENTRAL_1,
+        Regions.EU_CENTRAL_1,
+        Regions.EU_WEST_1,
+        Regions.EU_WEST_2,
+        Regions.EU_WEST_3,
+        Regions.EU_NORTH_1,
         Regions.SA_EAST_1
     };
 
@@ -403,7 +402,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             final ListBoxModel items = new ListBoxModel();
 
             for (final Regions region : AVAILABLE_REGIONS) {
-                items.add(region.toString(), region.getName());
+                items.add(region.getDescription() + " " + region.getName(), region.getName());
             }
 
             return items;
