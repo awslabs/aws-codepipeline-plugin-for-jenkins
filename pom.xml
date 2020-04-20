@@ -55,18 +55,19 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <aws-sdk-version>1.11.764</aws-sdk-version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-codepipeline</artifactId>
-      <version>1.11.732</version>
+      <version>${aws-sdk-version}</version>
     </dependency>
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-s3</artifactId>
-      <version>1.11.732</version>
+      <version>${aws-sdk-version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
