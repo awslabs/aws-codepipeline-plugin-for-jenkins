@@ -170,6 +170,10 @@ public class AWSCodePipelinePublisher extends Notifier {
             LoggingHelper.log(listener, ex.getMessage());
             LoggingHelper.log(listener, ex);
             awsStatus = false;
+        } catch (final Throwable ex) {
+            error = "Failed to upload output artifact(s): " + ex.getMessage();
+            awsStatus = false;
+            throw ex;
         } finally {
             PublisherTools.putJobResult(
                     awsStatus,

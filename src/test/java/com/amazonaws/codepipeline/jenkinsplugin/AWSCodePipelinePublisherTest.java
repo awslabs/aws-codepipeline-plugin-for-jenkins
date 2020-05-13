@@ -19,24 +19,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
 
-import hudson.remoting.VirtualChannel;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -456,6 +453,40 @@ public class AWSCodePipelinePublisherTest {
     }
 
     @Test
+    public void putsJobFailedWhenUploadThrowsError() {
+        // given
+        when(mockBuild.getResult()).thenReturn(Result.SUCCESS);
+
+        when(mockJobData.getOutputArtifacts()).thenReturn(generateOutputArtifactsWithNames(Arrays.asList("artifact_1", "artifact_2")));
+
+        final AWSCodePipelinePublisher uploadFailurePublisher
+                = new AWSCodePipelinePublisherMockError(outputLocations, mockFactory);
+
+        // when
+        try {
+            assertFalse(uploadFailurePublisher.perform(mockBuild, null, null));
+            fail("Expected MockError not thrown");
+        } catch (final TestError e) {
+            // empty
+        }
+
+        // then
+        final InOrder inOrder = inOrder(mockFactory, mockAWS, mockCodePipelineClient);
+        inOrder.verify(mockFactory).getAwsClient(ACCESS_KEY, SECRET_KEY, PROXY_HOST, PROXY_PORT, REGION, PLUGIN_VERSION);
+        inOrder.verify(mockAWS).getCodePipelineClient();
+        inOrder.verify(mockCodePipelineClient).putJobFailureResult(putJobFailureResultRequest.capture());
+
+        final PutJobFailureResultRequest request = putJobFailureResultRequest.getValue();
+        assertEquals(jobId, request.getJobId());
+        assertEquals(BUILD_ID, request.getFailureDetails().getExternalExecutionId());
+        assertEquals("Failed to upload output artifact(s): Error", request.getFailureDetails().getMessage());
+        assertEquals(FailureType.JobFailed.toString(), request.getFailureDetails().getType());
+
+        assertContainsIgnoreCase(PUBLISHING_ARTIFACTS_MESSAGE, outContent.toString());
+        assertContainsIgnoreCase(PUT_JOB_FAILURE_MESSAGE, outContent.toString());
+    }
+
+    @Test
     public void cleanUpSuccess() {
         // given
         model.setCompressionType(CompressionType.Zip);
@@ -490,6 +521,23 @@ public class AWSCodePipelinePublisherTest {
         @Override
         public void callPublish(final AbstractBuild<?,?> action, final CodePipelineStateModel model, final BuildListener listener) {
             throw new AmazonS3Exception("S3 root cause");
+        }
+    }
+
+    private static class AWSCodePipelinePublisherMockError extends AWSCodePipelinePublisher {
+        public AWSCodePipelinePublisherMockError(final JSONArray outputLocations, final AWSClientFactory mockFactory) {
+            super(outputLocations, mockFactory);
+        }
+
+        @Override
+        public void callPublish(final AbstractBuild<?,?> action, final CodePipelineStateModel model, final BuildListener listener) {
+            throw new TestError();
+        }
+    }
+
+    private static class TestError extends Error {
+        public TestError() {
+            super("Error");
         }
     }
 
