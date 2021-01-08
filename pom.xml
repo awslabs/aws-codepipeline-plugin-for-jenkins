@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>aws-codepipeline</artifactId>
-  <version>0.43-SNAPSHOT</version>
+  <version>0.43</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin</name>
@@ -39,7 +39,7 @@
     <url>https://github.com/jenkinsci/aws-codepipeline-plugin</url>
     <connection>scm:git:ssh://github.com/jenkinsci/aws-codepipeline-plugin.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/jenkinsci/aws-codepipeline-plugin.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>aws-codepipeline-0.43</tag>
   </scm>
 
   <repositories>
