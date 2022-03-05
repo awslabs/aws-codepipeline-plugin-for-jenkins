@@ -60,10 +60,11 @@ import net.sf.json.JSONObject;
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
     public static final Regions[] AVAILABLE_REGIONS = {
-        Regions.US_EAST_2,
         Regions.US_EAST_1,
+        Regions.US_EAST_2,
         Regions.US_WEST_1,
         Regions.US_WEST_2,
+        Regions.AP_EAST_1,
         Regions.AP_SOUTH_1,
         Regions.AP_NORTHEAST_2,
         Regions.AP_SOUTHEAST_1,
@@ -73,12 +74,13 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         Regions.EU_CENTRAL_1,
         Regions.EU_WEST_1,
         Regions.EU_WEST_2,
+        Regions.EU_SOUTH_1,
         Regions.EU_WEST_3,
         Regions.EU_NORTH_1,
         Regions.SA_EAST_1,
         Regions.GovCloud,
-        Regions.AP_EAST_1,
-        Regions.EU_SOUTH_1
+        Regions.CN_NORTH_1,
+        Regions.CN_NORTHWEST_1
     };
 
     public static final CategoryType[] ACTION_TYPE = {
