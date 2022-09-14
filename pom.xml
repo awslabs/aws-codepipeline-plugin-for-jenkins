@@ -55,7 +55,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <aws-sdk-version>1.11.943</aws-sdk-version>
+    <aws-sdk-version>1.12.261</aws-sdk-version>
   </properties>
 
   <dependencies>
