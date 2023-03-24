@@ -24,7 +24,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Paths;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.io.FileUtils;
+import org.jenkinsci.remoting.RoleChecker;
 
 import com.amazonaws.services.codepipeline.model.Artifact;
 import com.amazonaws.services.codepipeline.model.Job;
@@ -60,6 +62,14 @@ public final class DownloadCallable implements FileCallable<Void> {
         this.pluginUserAgentPrefix = pluginUserAgentPrefix;
     }
 
+    // This is an abstract method in parent class so we have to override it. 
+    // But it is not used in our package so leaving it blank.
+    @Override
+    public void checkRoles(RoleChecker checker) throws SecurityException {
+    }
+
+    @SuppressFBWarnings(value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+        justification = "The getter method should always return non-null values")
     @Override
     public Void invoke(final File workspace, final VirtualChannel channel) throws InterruptedException {
         clearWorkspaceIfSelected(workspace, listener);
