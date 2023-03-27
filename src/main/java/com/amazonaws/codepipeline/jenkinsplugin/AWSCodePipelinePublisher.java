@@ -21,7 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -48,6 +48,8 @@ import net.sf.json.JSONObject;
  * It calls putJobSuccessResult or putJobFailureResult depending on the build result.
  * It only works together with the CodePipeline SCM plugin to get access to the Job Data, Credentials and Proxy.
  */
+@SuppressFBWarnings(value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+    justification = "The getter method should always return non-null values")
 public class AWSCodePipelinePublisher extends Notifier {
     private static final String JELLY_KEY_LOCATION = "location";
     private static final String JELLY_KEY_ARTIFACT_NAME = "artifactName";

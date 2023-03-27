@@ -19,6 +19,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Random;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.util.Secret;
+import net.sf.json.JSONObject;
+
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -59,35 +63,43 @@ import net.sf.json.JSONObject;
 
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
 
-    public static final Regions[] AVAILABLE_REGIONS = {
-        Regions.US_EAST_1,
-        Regions.US_EAST_2,
-        Regions.US_WEST_1,
-        Regions.US_WEST_2,
-        Regions.AP_EAST_1,
-        Regions.AP_SOUTH_1,
-        Regions.AP_NORTHEAST_2,
-        Regions.AP_SOUTHEAST_1,
-        Regions.AP_SOUTHEAST_2,
-        Regions.AP_NORTHEAST_1,
-        Regions.CA_CENTRAL_1,
-        Regions.EU_CENTRAL_1,
-        Regions.EU_WEST_1,
-        Regions.EU_WEST_2,
-        Regions.EU_SOUTH_1,
-        Regions.EU_WEST_3,
-        Regions.EU_NORTH_1,
-        Regions.SA_EAST_1,
-        Regions.GovCloud,
-        Regions.CN_NORTH_1,
-        Regions.CN_NORTHWEST_1
-    };
+    public static Regions[] available_regions() {
+        return new Regions[] {
+            Regions.US_EAST_1,
+            Regions.US_EAST_2,
+            Regions.US_GOV_EAST_1,
+            Regions.US_WEST_1,
+            Regions.US_WEST_2,
+            Regions.AF_SOUTH_1,
+            Regions.AP_EAST_1,
+            Regions.AP_SOUTH_1,
+            Regions.AP_NORTHEAST_2,
+            Regions.AP_SOUTHEAST_1,
+            Regions.AP_SOUTHEAST_2,
+            Regions.AP_NORTHEAST_1,
+            Regions.CA_CENTRAL_1,
+            Regions.EU_CENTRAL_1,
+            Regions.EU_CENTRAL_2,
+            Regions.EU_WEST_1,
+            Regions.EU_WEST_2,
+            Regions.EU_SOUTH_1,
+            Regions.EU_WEST_3,
+            Regions.EU_NORTH_1,
+            Regions.ME_SOUTH_1,
+            Regions.SA_EAST_1,
+            Regions.GovCloud,
+            Regions.CN_NORTH_1,
+            Regions.CN_NORTHWEST_1
+        };
+    }
 
-    public static final CategoryType[] ACTION_TYPE = {
-        CategoryType.PleaseChooseACategory,
-        CategoryType.Build,
-        CategoryType.Test
-    };
+    public static CategoryType[] action_type() {
+        return new CategoryType[] {
+            CategoryType.PleaseChooseACategory,
+            CategoryType.Build,
+            CategoryType.Test
+        };
+    }
 
     private static final Random RANDOM = new Random();
 
@@ -380,6 +392,8 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             return "AWS CodePipeline";
         }
 
+        @SuppressFBWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE",
+        justification = "request should be non-null")
         @Override
         public SCM newInstance(final StaplerRequest req,
                                final JSONObject formData) throws FormException {
@@ -406,7 +420,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         public ListBoxModel doFillRegionItems() {
             final ListBoxModel items = new ListBoxModel();
 
-            for (final Regions region : AVAILABLE_REGIONS) {
+            for (final Regions region : available_regions()) {
                 items.add(region.getDescription() + " " + region.getName(), region.getName());
             }
 
@@ -416,7 +430,7 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         public ListBoxModel doFillCategoryItems() {
             final ListBoxModel items = new ListBoxModel();
 
-            for (final CategoryType action : ACTION_TYPE) {
+            for (final CategoryType action : action_type()) {
                 items.add(action.toString(), action.name());
             }
 

@@ -34,6 +34,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import hudson.FilePath.FileCallable;
 import hudson.model.BuildListener;
 import hudson.remoting.VirtualChannel;
+import org.jenkinsci.remoting.RoleChecker;
 
 public final class PublisherCallable implements FileCallable<Void> {
 
@@ -61,6 +62,13 @@ public final class PublisherCallable implements FileCallable<Void> {
         this.pluginUserAgentPrefix = Objects.requireNonNull(pluginUserAgentPrefix, "pluginUserAgentPrefix must not be null");
         this.listener = listener;
     }
+
+    // This is an abstract method in parent class so we have to override it. 
+    // But it is not used in our package so leaving it blank.
+    @Override
+    public void checkRoles(RoleChecker checker) throws SecurityException {
+    }
+
 
     @Override
     public Void invoke(final File workspace, final VirtualChannel channel) throws IOException {

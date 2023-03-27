@@ -115,6 +115,7 @@ public final class CompressionTools {
                      new BufferedOutputStream(
                      new FileOutputStream(temporaryTarFile)))) {
 
+            tarArchiveOutputStream.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
             compressArchive(
                     pathToCompress,
                     tarArchiveOutputStream,
@@ -135,6 +136,7 @@ public final class CompressionTools {
                 new GzipCompressorOutputStream(
                 new FileOutputStream(temporaryTarGzFile))))) {
 
+            tarGzArchiveOutputStream.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
             compressArchive(
                     pathToCompress,
                     tarGzArchiveOutputStream,
