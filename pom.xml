@@ -7,7 +7,7 @@
   </parent>
 
   <artifactId>aws-codepipeline</artifactId>
-  <version>0.46-SNAPSHOT</version>
+  <version>0.47-SNAPSHOT</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin</name>
