@@ -30,7 +30,6 @@ import org.kohsuke.stapler.StaplerRequest;
 
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CategoryType;
 import com.amazonaws.codepipeline.jenkinsplugin.CodePipelineStateModel.CompressionType;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.codepipeline.AWSCodePipeline;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobRequest;
 import com.amazonaws.services.codepipeline.model.AcknowledgeJobResult;
@@ -62,36 +61,6 @@ import hudson.util.Secret;
 import net.sf.json.JSONObject;
 
 public class AWSCodePipelineSCM extends hudson.scm.SCM {
-
-    public static Regions[] available_regions() {
-        return new Regions[] {
-            Regions.US_EAST_1,
-            Regions.US_EAST_2,
-            Regions.US_GOV_EAST_1,
-            Regions.US_WEST_1,
-            Regions.US_WEST_2,
-            Regions.AF_SOUTH_1,
-            Regions.AP_EAST_1,
-            Regions.AP_SOUTH_1,
-            Regions.AP_NORTHEAST_2,
-            Regions.AP_SOUTHEAST_1,
-            Regions.AP_SOUTHEAST_2,
-            Regions.AP_NORTHEAST_1,
-            Regions.CA_CENTRAL_1,
-            Regions.EU_CENTRAL_1,
-            Regions.EU_CENTRAL_2,
-            Regions.EU_WEST_1,
-            Regions.EU_WEST_2,
-            Regions.EU_SOUTH_1,
-            Regions.EU_WEST_3,
-            Regions.EU_NORTH_1,
-            Regions.ME_SOUTH_1,
-            Regions.SA_EAST_1,
-            Regions.GovCloud,
-            Regions.CN_NORTH_1,
-            Regions.CN_NORTHWEST_1
-        };
-    }
 
     public static CategoryType[] action_type() {
         return new CategoryType[] {
@@ -417,14 +386,24 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
             return true;
         }
 
-        public ListBoxModel doFillRegionItems() {
-            final ListBoxModel items = new ListBoxModel();
-
-            for (final Regions region : available_regions()) {
-                items.add(region.getDescription() + " " + region.getName(), region.getName());
+        public FormValidation doCheckRegion(@QueryParameter final String value) {
+            if (value == null || value.isEmpty()) {
+                return FormValidation.error("Please enter AWS Region");
             }
 
-            return items;
+            if (value.length() > Validation.MAX_REGION_LENGTH) {
+                return FormValidation.error(
+                        String.format(
+                                "The AWS Region name is too long, the name should be at most %d characters, you entered %d characters",
+                                Validation.MAX_REGION_LENGTH,
+                                value.length()));
+            }
+
+            if (value.trim().length() != value.length()) {
+                return FormValidation.error("Please remove leading and trailing whitespaces from AWS Region");
+            }
+
+            return FormValidation.ok();
         }
 
         public ListBoxModel doFillCategoryItems() {

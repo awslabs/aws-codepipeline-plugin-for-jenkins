@@ -345,6 +345,27 @@ public class AWSCodePipelineSCMTest extends Suite {
         }
 
         @Test
+        public void doCheckRegionSucceedsWithValidRegion() {
+            assertEquals(FormValidation.ok(), descriptor.doCheckCategory(REGION));
+        }
+
+        @Test
+        public void doCheckRegionFailsIfRegionNotProvided() {
+            assertValidationMessage(
+                    FormValidation.error("Please enter AWS Region"),
+                    descriptor.doCheckRegion("")
+            );
+        }
+
+        @Test
+        public void doCheckRegionFailsIfRegionContainsATrailingWhitespace() {
+            assertValidationMessage(
+                    FormValidation.error("Please remove leading and trailing whitespaces from AWS Region"),
+                    descriptor.doCheckRegion(REGION + " ")
+            );
+        }
+
+        @Test
         public void doCheckCategorySucceedsWithBuildCategory() {
             assertEquals(FormValidation.ok(), descriptor.doCheckCategory(CategoryType.Build.name()));
         }
