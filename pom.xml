@@ -1,13 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>4.56</version>
+    <version>4.75</version>
+    <relativePath />
   </parent>
 
   <artifactId>aws-codepipeline</artifactId>
-  <version>0.47</version>
+  <version>${revision}${changelist}</version>
   <packaging>hpi</packaging>
   <groupId>com.amazonaws</groupId>
   <name>AWS CodePipeline Plugin</name>
@@ -17,7 +19,7 @@
     and the post-build event uploads the build artifacts and calls
     PutJobSuccessResult/PutJobFailureResult to report back the build status.
   </description>
-  <url>https://github.com/jenkinsci/aws-codepipeline-plugin</url>
+  <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
 
   <developers>
     <developer>
@@ -36,25 +38,25 @@
   </licenses>
 
   <scm>
-    <url>https://github.com/jenkinsci/aws-codepipeline-plugin</url>
-    <connection>scm:git:ssh://github.com/jenkinsci/aws-codepipeline-plugin.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/jenkinsci/aws-codepipeline-plugin.git</developerConnection>
-    <tag>aws-codepipeline-0.47</tag>
+    <connection>scm:git:https://github.com/${gitHubRepo}.git</connection>
+    <developerConnection>scm:git:git@github.com:${gitHubRepo}.git</developerConnection>
+    <url>https://github.com/${gitHubRepo}</url>
+    <tag>${scmTag}</tag>
   </scm>
 
   <repositories>
     <repository>
-        <id>repo.jenkins-ci.org</id>
-        <url>https://repo.jenkins-ci.org/public/</url>
-    </repository>
-    <repository>
-        <id>lib</id>
-        <url>file://${project.basedir}/lib</url>
+      <id>repo.jenkins-ci.org</id>
+      <url>https://repo.jenkins-ci.org/public/</url>
     </repository>
   </repositories>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <revision>0.48</revision>
+    <changelist>-SNAPSHOT</changelist>
+    <!-- https://www.jenkins.io/doc/developer/plugin-development/choosing-jenkins-baseline/ -->
+    <jenkins.version>2.387.3</jenkins.version>
+    <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
     <aws-sdk-version>1.12.573</aws-sdk-version>
   </properties>
 
@@ -70,25 +72,13 @@
       <version>${aws-sdk-version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-compress</artifactId>
-      <version>1.24.0</version>
-    </dependency>
-    <dependency>
       <groupId>joda-time</groupId>
       <artifactId>joda-time</artifactId>
       <version>2.9.9</version>
     </dependency>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.2</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>1.10.19</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -99,31 +89,4 @@
       <url>https://repo.jenkins-ci.org/public/</url>
     </pluginRepository>
   </pluginRepositories>
-
-  <distributionManagement>
-    <repository>
-      <id>repo.jenkins-ci.org</id>
-      <url>https://repo.jenkins-ci.org/releases</url>
-    </repository>
-  </distributionManagement>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.3</version>
-        <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-release-plugin</artifactId>
-        <version>2.5.2</version>
-      </plugin>
-    </plugins>
-  </build>
 </project>
