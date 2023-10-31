@@ -8,7 +8,7 @@
     </f:entry>
 
     <f:entry title="AWS Region" field="region">
-        <f:select name="region"/>
+        <f:textbox name="region"/>
     </f:entry>
 
     <f:entry title="Proxy Host" field="proxyHost">

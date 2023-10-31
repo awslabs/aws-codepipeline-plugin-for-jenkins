@@ -25,6 +25,7 @@ public class Validation {
     private static final String  LINE_SEPARATOR = System.lineSeparator();
 
     // These come from AWS CodePipeline specifications
+    public static final int MAX_REGION_LENGTH = 50; // https://docs.aws.amazon.com/accounts/latest/reference/API_Region.html
     public static final int MAX_VERSION_LENGTH = 9;
     public static final int MAX_PROVIDER_LENGTH = 25;
     public static final int MAX_PROJECT_NAME_LENGTH = 50;
