@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -53,7 +54,7 @@ public class AWSClientsTest {
     @Test
     public void createsCodePipelineClientUsingProxyHostAndPort() {
         // when
-        final AWSClients awsClients = new AWSClients(Region.getRegion(Regions.US_WEST_2), mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
+        final AWSClients awsClients = new AWSClients(Region.getRegion(Regions.US_WEST_2).getName(), mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
         final AWSCodePipeline codePipelineClient = awsClients.getCodePipelineClient();
 
         // then
@@ -63,13 +64,13 @@ public class AWSClientsTest {
         final ClientConfiguration clientConfiguration = clientConfigurationCaptor.getValue();
         assertEquals(PROXY_HOST, clientConfiguration.getProxyHost());
         assertEquals(PROXY_PORT, clientConfiguration.getProxyPort());
-        verify(codePipelineClient).setRegion(Region.getRegion(Regions.US_WEST_2));
+        verify(codePipelineClient).setEndpoint("https://codepipeline.us-west-2.amazonaws.com");
     }
 
     @Test
     public void createsS3ClientUsingProxyHostAndPort() {
         // when
-        final AWSClients awsClients = new AWSClients(Region.getRegion(Regions.US_WEST_2), mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
+        final AWSClients awsClients = new AWSClients(Region.getRegion(Regions.US_WEST_2).getName(), mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
         final AmazonS3 s3Client = awsClients.getS3Client(mock(AWSCredentialsProvider.class));
 
         // then
@@ -79,7 +80,7 @@ public class AWSClientsTest {
         final ClientConfiguration clientConfiguration = clientConfigurationCaptor.getValue();
         assertEquals(PROXY_HOST, clientConfiguration.getProxyHost());
         assertEquals(PROXY_PORT, clientConfiguration.getProxyPort());
-        verify(s3Client).setRegion(Region.getRegion(Regions.US_WEST_2));
+        verify(s3Client).setEndpoint("https://s3.us-west-2.amazonaws.com");
     }
 
     @Test
@@ -90,9 +91,32 @@ public class AWSClientsTest {
         final AmazonS3 s3Client = awsClients.getS3Client(mock(AWSCredentialsProvider.class));
 
         // then
-        verify(codePipelineClient).setRegion(Region.getRegion(Regions.US_EAST_1));
-        verify(s3Client).setRegion(Region.getRegion(Regions.US_EAST_1));
-
+        verify(codePipelineClient).setEndpoint("https://codepipeline.us-east-1.amazonaws.com");
+        verify(s3Client).setEndpoint("https://s3.us-east-1.amazonaws.com");
     }
 
+    @Test
+    public void usesCorrectUrlForChinaRegion() {
+        // when
+        final AWSClients awsClients = new AWSClients(Region.getRegion(Regions.CN_NORTH_1).getName(), mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
+        final AWSCodePipeline codePipelineClient = awsClients.getCodePipelineClient();
+        final AmazonS3 s3Client = awsClients.getS3Client(mock(AWSCredentialsProvider.class));
+
+        // then
+        verify(codePipelineClient).setEndpoint("https://codepipeline.cn-north-1.amazonaws.com.cn");
+        verify(s3Client).setEndpoint("https://s3.cn-north-1.amazonaws.com.cn");
+    }
+
+    @Test
+    public void canUseAnyRegion() {
+        // when
+        final String randomRegion = RandomStringUtils.random(16);
+        final AWSClients awsClients = new AWSClients(randomRegion, mock(AWSCredentials.class), PROXY_HOST, PROXY_PORT, PLUGIN_VERSION, codePipelineClientFactory, s3ClientFactory);
+        final AWSCodePipeline codePipelineClient = awsClients.getCodePipelineClient();
+        final AmazonS3 s3Client = awsClients.getS3Client(mock(AWSCredentialsProvider.class));
+
+        // then
+        verify(codePipelineClient).setEndpoint(String.format("https://codepipeline.%s.amazonaws.com", randomRegion));
+        verify(s3Client).setEndpoint(String.format("https://s3.%s.amazonaws.com", randomRegion));
+    }
 }

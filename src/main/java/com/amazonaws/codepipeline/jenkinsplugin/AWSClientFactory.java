@@ -33,19 +33,18 @@ public class AWSClientFactory implements Serializable {
             final String region,
             final String pluginUserAgentPrefix) {
 
-        final Region awsRegion = Region.getRegion(Regions.fromName(region));
         final AWSClients aws;
 
         if (StringUtils.isEmpty(awsAccessKey) && StringUtils.isEmpty(awsSecretKey)) {
             aws = AWSClients.fromDefaultCredentialChain(
-                    awsRegion,
+                    region,
                     proxyHost,
                     proxyPort,
                     pluginUserAgentPrefix);
         }
         else {
             aws = AWSClients.fromBasicCredentials(
-                    awsRegion,
+                    region,
                     awsAccessKey,
                     awsSecretKey,
                     proxyHost,

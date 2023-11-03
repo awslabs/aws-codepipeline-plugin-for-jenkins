@@ -166,12 +166,13 @@ public class AWSCodePipelineSCM extends hudson.scm.SCM {
         final String projectName = Validation.sanitize(project.getName().trim());
 
         LoggingHelper.log(listener, "Polling for jobs for action type id: ["
-                + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s]",
+                + "Owner: %s, Category: %s, Provider: %s, Version: %s, ProjectName: %s] in AWS region %s",
                 actionTypeId.getOwner(),
                 actionTypeId.getCategory(),
                 actionTypeId.getProvider(),
                 actionTypeId.getVersion(),
-                project.getName());
+                project.getName(),
+                region);
 
         return pollForJobs(projectName, actionTypeId, listener);
     }
