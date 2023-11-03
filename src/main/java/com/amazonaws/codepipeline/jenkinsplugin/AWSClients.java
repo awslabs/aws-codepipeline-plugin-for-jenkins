@@ -31,12 +31,12 @@ public class AWSClients {
 
     private final AWSCodePipeline codePipelineClient;
     private final ClientConfiguration clientCfg;
-    private final Region region;
+    private final String region;
 
     private final S3ClientFactory s3ClientFactory;
 
     public AWSClients(
-            final Region region,
+            final String region,
             final AWSCredentials credentials,
             final String proxyHost,
             final int proxyPort,
@@ -45,7 +45,7 @@ public class AWSClients {
             final S3ClientFactory s3ClientFactory) {
 
         if (region == null) {
-            this.region = Region.getRegion(Regions.US_EAST_1);
+            this.region = Region.getRegion(Regions.US_EAST_1).getName();
         } else {
             this.region = region;
         }
@@ -57,13 +57,13 @@ public class AWSClients {
         }
 
         this.codePipelineClient = codePipelineClientFactory.getAWSCodePipelineClient(credentials, clientCfg);
-        this.codePipelineClient.setRegion(this.region);
+        this.codePipelineClient.setEndpoint("https://codepipeline." + this.region + getAwsClientSuffix(this.region));
 
         this.s3ClientFactory = s3ClientFactory;
     }
 
     public static AWSClients fromDefaultCredentialChain(
-            final Region region,
+            final String region,
             final String proxyHost,
             final int proxyPort,
             final String pluginUserAgentPrefix) {
@@ -72,7 +72,7 @@ public class AWSClients {
     }
 
     public static AWSClients fromBasicCredentials(
-            final Region region,
+            final String region,
             final String awsAccessKey,
             final String awsSecretKey,
             final String proxyHost,
@@ -94,7 +94,8 @@ public class AWSClients {
         Objects.requireNonNull(region, "region must not be null");
 
         final AmazonS3 client = s3ClientFactory.getS3Client(credentialsProvider, new ClientConfiguration(clientCfg).withSignerOverride("AWSS3V4SignerType"));
-        client.setRegion(region);
+        client.setEndpoint("https://s3." + this.region + getAwsClientSuffix(this.region));
+
         return client;
     }
 
@@ -120,6 +121,14 @@ public class AWSClients {
             return new AmazonS3Client(credentialsProvider, clientCfg);
         }
 
+    }
+
+    private String getAwsClientSuffix(String region) {
+        if (region.equals(Regions.CN_NORTH_1.getName()) || region.equals(Regions.CN_NORTHWEST_1.getName())) {
+            return ".amazonaws.com.cn";
+        } else {
+            return ".amazonaws.com";
+        }
     }
 
 }
